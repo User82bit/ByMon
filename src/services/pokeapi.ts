@@ -4,8 +4,15 @@ const API_BASE = 'https://pokeapi.co/api/v2'
 const OFFICIAL_ARTWORK_BASE =
   'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork'
 
-interface NamedResource { name: string; url: string }
-interface TypeResponse { pokemon: Array<{ pokemon: NamedResource }> }
+interface NamedResource {
+  name: string
+  url: string
+}
+
+interface TypeResponse {
+  pokemon: Array<{ pokemon: NamedResource }>
+}
+
 interface PokemonResponse {
   id: number
   name: string
@@ -30,32 +37,71 @@ function artworkUrl(id: number): string {
   return OFFICIAL_ARTWORK_BASE + '/' + id + '.png'
 }
 
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+async function fetchJson<T>(url: string, description: string, attempts = 3): Promise<T> {
+  let lastError: unknown = null
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetch(url)
+
+      if (!response.ok) {
+        throw new Error(description + ' retornou HTTP ' + response.status + '.')
+      }
+
+      return (await response.json()) as T
+    } catch (error) {
+      lastError = error
+
+      if (attempt < attempts) {
+        await wait(250 * attempt)
+      }
+    }
+  }
+
+  const message = lastError instanceof Error ? lastError.message : 'Falha de rede.'
+  throw new Error(description + ': ' + message)
+}
+
 async function getTypeMembers(type: PokemonTypeName): Promise<Array<{ id: number; name: string }>> {
-  const response = await fetch(API_BASE + '/type/' + type)
-  if (!response.ok) throw new Error('Falha ao carregar o tipo ' + type + '.')
-  const data = (await response.json()) as TypeResponse
+  const data = await fetchJson<TypeResponse>(
+    API_BASE + '/type/' + type,
+    'Falha ao carregar o tipo ' + type,
+  )
+
   return data.pokemon
-    .map(({ pokemon }) => ({ id: parseId(pokemon.url), name: pokemon.name }))
+    .map(({ pokemon }) => ({
+      id: parseId(pokemon.url),
+      name: pokemon.name,
+    }))
     .filter((pokemon) => pokemon.id > 0)
 }
 
 async function loadCatalog(): Promise<PokemonSummary[]> {
-  const memberships = await Promise.all(
-    POKEMON_TYPES.map(async (type) => ({ type, pokemon: await getTypeMembers(type) })),
-  )
   const byName = new Map<string, PokemonSummary>()
 
-  for (const membership of memberships) {
-    for (const entry of membership.pokemon) {
+  // As requisições são feitas de forma controlada em vez de disparadas
+  // simultaneamente. Isso evita que uma falha transitória derrube toda a Pokédex.
+  for (const type of POKEMON_TYPES) {
+    const pokemonOfType = await getTypeMembers(type)
+
+    for (const entry of pokemonOfType) {
       const existing = byName.get(entry.name)
+
       if (existing) {
-        if (!existing.types.includes(membership.type)) existing.types.push(membership.type)
+        if (!existing.types.includes(type)) {
+          existing.types.push(type)
+        }
         continue
       }
+
       byName.set(entry.name, {
         id: entry.id,
         name: entry.name,
-        types: [membership.type],
+        types: [type],
         imageUrl: artworkUrl(entry.id),
       })
     }
@@ -71,18 +117,21 @@ export async function getPokemonCatalog(): Promise<PokemonSummary[]> {
       throw error
     })
   }
+
   return catalogPromise
 }
 
 export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<PokemonBattleData> {
   const cached = battleCache.get(pokemon.id)
-  if (cached) return cached
 
-  const request = fetch(API_BASE + '/pokemon/' + pokemon.id)
-    .then(async (response) => {
-      if (!response.ok) throw new Error('Falha ao carregar os dados de ' + pokemon.name + '.')
-      return (await response.json()) as PokemonResponse
-    })
+  if (cached) {
+    return cached
+  }
+
+  const request = fetchJson<PokemonResponse>(
+    API_BASE + '/pokemon/' + pokemon.id,
+    'Falha ao carregar os dados de ' + pokemon.name,
+  )
     .then((data) => {
       const findStat = (name: string) =>
         data.stats.find((stat) => stat.stat.name === name)?.base_stat ?? 1
@@ -93,7 +142,8 @@ export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<Pok
         types: data.types
           .sort((a, b) => a.slot - b.slot)
           .map((entry) => entry.type.name as PokemonTypeName),
-        imageUrl: data.sprites.other?.['official-artwork']?.front_default ?? artworkUrl(data.id),
+        imageUrl:
+          data.sprites.other?.['official-artwork']?.front_default ?? artworkUrl(data.id),
         stats: {
           hp: findStat('hp'),
           attack: findStat('attack'),
