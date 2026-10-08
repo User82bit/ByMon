@@ -1,4 +1,3 @@
-.online-lobby__eyebrow{display:flex;align-items:center;gap:7px}.online-lobby__eyebrow>span{padding:3px 7px;border-radius:999px;background:rgba(76,153,116,.14);border:1px solid rgba(76,153,116,.2);color:#3f7c5a;font-size:.63rem;font-weight:800;letter-spacing:.04em}
 .online-lobby__card{padding:14px}
 .online-lobby__section-header{display:flex;justify-content:space-between;gap:12px;align-items:end;margin-bottom:9px}
 .online-lobby__section-header>div{display:flex;align-items:baseline;gap:8px}
