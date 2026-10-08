@@ -26,6 +26,7 @@ export function OnlineServers({
   const [joinCode, setJoinCode] = useState('')
   const [creating, setCreating] = useState(false)
   const [joining, setJoining] = useState(false)
+  const [mode, setMode] = useState<OnlineMode>('local')
   const [form, setForm] = useState({
     name: 'Minha sala',
     maxPlayers: 4,
@@ -36,7 +37,12 @@ export function OnlineServers({
   const load = useCallback(async () => {
     try {
       setError(null)
-      setRooms(await listOnlineRooms())
+      const [nextMode, nextRooms] = await Promise.all([
+        getOnlineMode(),
+        listOnlineRooms(),
+      ])
+      setMode(nextMode)
+      setRooms(nextRooms)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Não foi possível carregar as salas.')
     } finally {
@@ -150,7 +156,10 @@ export function OnlineServers({
             {rooms.map((room) => (
               <article className="online-room" key={room.id}>
                 <div>
-                  <span className="online-room__name">{room.name}</span>
+                  <div className="online-room__title">
+                    <span className="online-room__name">{room.name}</span>
+                    {room.source === 'lan' && <span className="online-room__tag">LAN</span>}
+                  </div>
                   <p>
                     Host: {room.players.find((player) => player.host)?.name ?? 'Host'} ·{' '}
                     {room.players.length}/{room.maxPlayers} jogadores
