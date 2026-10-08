@@ -2,7 +2,7 @@ import {useEffect,useState} from 'react'
 import {MainLayout} from './layout/MainLayout'
 import {Home} from './pages/Home/Home'
 import {Battle} from './pages/Battle/Battle'
-import {getPokemonBattleData,getPokemonCatalog} from './services/pokeapi'
+import {enrichPokemonTypes,getPokemonBattleData,getPokemonCatalog} from './services/pokeapi'
 import {simulateBattle} from './utils/battle'
 import type {BattleResult,PokemonBattleData,PokemonSummary,Team} from './types/pokemon'
 import './App.css'
@@ -20,7 +20,7 @@ export default function App(){
  const[result,setResult]=useState<BattleResult|null>(null)
  const[details,setDetails]=useState<Map<number,PokemonBattleData>>(new Map())
 
- async function loadCatalog(){setLoading(true);setError(null);try{setCatalog(await getPokemonCatalog())}catch(e){setError(e instanceof Error?e.message:'Erro desconhecido.')}finally{setLoading(false)}}
+ async function loadCatalog(){setLoading(true);setError(null);try{const basic=await getPokemonCatalog();setCatalog(basic);setLoading(false);void enrichPokemonTypes(basic,setCatalog)}catch(e){setError(e instanceof Error?e.message:'Erro desconhecido.');setLoading(false)}}
  useEffect(()=>{void loadCatalog()},[])
 
  function rename(id:string,name:string){setTeams(c=>c.map(t=>t.id===id?{...t,name:name||'Time sem nome'}:t))}
