@@ -741,12 +741,21 @@ export function bymonLanDiscoveryPlugin(): Plugin {
     name: 'bymon-lan-discovery',
     configureServer(server) {
       const address = server.httpServer?.address()
-      const port =
+      const initialPort =
         typeof address === 'object' && address
           ? (address as AddressInfo).port
           : Number(server.config.server.port) || 5173
 
-      const state = createState(port)
+      const state = createState(initialPort)
+
+      server.httpServer?.once('listening', () => {
+        const listeningAddress = server.httpServer?.address()
+
+        if (typeof listeningAddress === 'object' && listeningAddress) {
+          state.serverPort = (listeningAddress as AddressInfo).port
+          announceAll(state)
+        }
+      })
 
       server.middlewares.use('/api/lan', async (request, response) => {
         try {
