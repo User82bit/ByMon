@@ -68,7 +68,7 @@ async function prepareMoves(pokemon: PokemonBattleData, rng: () => number): Prom
     }))
     for (const move of batch) {
       if (move && move.power !== null && move.power > 0 && move.damageClass !== 'status') {
-        valid.push({ name: move.name.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' '), type: move.type, power: move.power, damageClass: move.damageClass })
+        valid.push({ name: move.name.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' '), type: move.type, power: move.power, damageClass: move.damageClass, accuracy: move.accuracy })
         if (valid.length >= 10) break
       }
     }

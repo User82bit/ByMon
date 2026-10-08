@@ -50,6 +50,8 @@ export interface BattleFighter {
   pokemon: PokemonBattleData
   currentHp: number
   maxHp: number
+  moves: BattleMove[]
+  rng: () => number
 }
 
 export interface BattleActor {
@@ -70,6 +72,7 @@ export interface BattleMove {
   type: PokemonTypeName
   power: number
   damageClass: 'physical' | 'special'
+  accuracy?: number | null
 }
 
 export interface BattleEvent {
