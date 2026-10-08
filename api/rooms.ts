@@ -35,6 +35,8 @@ interface PlayerBody {
 
 type Body = CreateBody | JoinBody | PlayerBody
 
+type StoredRoom = OnlineRoom & { passwordHash?: string }
+
 declare global {
   // eslint-disable-next-line no-var
   var __bymonRedis: Promise<RedisClientType> | undefined
@@ -106,10 +108,17 @@ function prunePlayers(room: OnlineRoom, now: number): OnlineRoom {
   return room
 }
 
-function publicRoom(room: OnlineRoom): Record<string, unknown> {
+function publicRoom(room: StoredRoom): Record<string, unknown> {
   return {
-    ...room,
+    id: room.id,
+    name: room.name,
+    code: room.code,
+    hostId: room.hostId,
+    maxPlayers: room.maxPlayers,
+    private: room.private,
+    status: room.status,
     players: room.players.map(({ id, name, host, ready }) => ({ id, name, host, ready })),
+    createdAt: room.createdAt,
     passwordRequired: room.private,
   }
 }
@@ -191,7 +200,7 @@ async function createRoom(redis: RedisClientType, body: CreateBody): Promise<Res
     lastSeen: now,
   }
 
-  const room: OnlineRoom = {
+  const room: StoredRoom = {
     id,
     name,
     code,
@@ -201,6 +210,7 @@ async function createRoom(redis: RedisClientType, body: CreateBody): Promise<Res
     status: 'waiting',
     players: [host],
     createdAt: now,
+    ...(privateRoom ? { passwordHash: hashPassword(body.password!.trim()) } : {}),
   }
 
   await redis.multi()
@@ -213,7 +223,7 @@ async function createRoom(redis: RedisClientType, body: CreateBody): Promise<Res
     await redis.sRem(PUBLIC_ROOMS_KEY, id)
   }
 
-  return json({ room, playerId }, 201)
+  return json({ room: publicRoom(room), playerId }, 201)
 }
 
 async function joinRoom(redis: RedisClientType, body: JoinBody): Promise<Response> {
@@ -224,7 +234,7 @@ async function joinRoom(redis: RedisClientType, body: JoinBody): Promise<Respons
   const raw = await redis.get(roomKey(id))
   if (!raw) return json({ error: 'Sala não encontrada.' }, 404)
 
-  const room = prunePlayers(JSON.parse(raw) as OnlineRoom, Date.now())
+  const room = prunePlayers(JSON.parse(raw) as StoredRoom, Date.now())
 
   if (room.status !== 'waiting') return json({ error: 'A batalha desta sala já começou.' }, 409)
   if (room.private && hashPassword(body.password ?? '') !== room.passwordHash) {
@@ -245,31 +255,25 @@ async function joinRoom(redis: RedisClientType, body: JoinBody): Promise<Respons
     lastSeen: Date.now(),
   })
 
-  const cleanedRoom = { ...room } as OnlineRoom & { passwordHash?: string }
-  const responseRoom = { ...room }
-  delete (cleanedRoom as { passwordHash?: string }).passwordHash
+  await redis.set(roomKey(room.id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
 
-  await redis.set(roomKey(room.id), JSON.stringify(cleanedRoom), { EX: ROOM_TTL_SECONDS })
-
-  return json({ room: responseRoom, playerId })
+  return json({ room: publicRoom(room), playerId })
 }
 
 async function getRoom(redis: RedisClientType, roomId: string, playerId?: string): Promise<Response> {
   const raw = await redis.get(roomKey(roomId))
   if (!raw) return json({ error: 'Sala não encontrada.' }, 404)
 
-  const room = prunePlayers(JSON.parse(raw) as OnlineRoom, Date.now())
+  const room = prunePlayers(JSON.parse(raw) as StoredRoom, Date.now())
 
   if (playerId) {
     const player = room.players.find((entry) => entry.id === playerId)
     if (player) player.lastSeen = Date.now()
   }
 
-  const storedRoom = JSON.parse(raw) as OnlineRoom & { passwordHash?: string }
-  const responseRoom = { ...room }
-  await redis.set(roomKey(room.id), JSON.stringify(storedRoom), { EX: ROOM_TTL_SECONDS })
+  await redis.set(roomKey(room.id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
 
-  return json({ room: responseRoom })
+  return json({ room: publicRoom(room) })
 }
 
 async function updatePlayer(redis: RedisClientType, body: PlayerBody): Promise<Response> {
