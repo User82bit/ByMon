@@ -34,9 +34,9 @@ export default function App() {
 
     try {
       const basic = await getPokemonCatalog()
-      setCatalog(basic)
+      const enriched = await enrichPokemonTypes(basic)
+      setCatalog(enriched)
       setLoading(false)
-      void enrichPokemonTypes(basic, setCatalog)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro desconhecido.')
       setLoading(false)
