@@ -135,7 +135,7 @@ export async function enrichPokemonTypes(
   const typeSets = await Promise.all(
     POKEMON_TYPES.map(async (type) => ({
       type,
-      names: await getPokemonOfType(type),
+      ids: await getPokemonOfType(type),
     })),
   )
 
@@ -156,7 +156,7 @@ export async function enrichPokemonTypes(
     }
   }
 
-  return Array.from(byName.values()).sort((a, b) => a.id - b.id)
+  return Array.from(byId.values()).sort((a, b) => a.id - b.id)
 }
 
 export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<PokemonBattleData> {
