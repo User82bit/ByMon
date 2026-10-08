@@ -1,5 +1,4 @@
 export type OnlineRoomStatus = 'waiting' | 'battle'
-export type OnlineRoomSource = 'local' | 'lan' | 'server'
 
 export interface OnlinePlayer {
   id: string
@@ -24,11 +23,9 @@ export interface OnlineRoom {
 
 export interface RoomListItem extends OnlineRoom {
   passwordRequired: boolean
-  source?: OnlineRoomSource
 }
 
 export interface RoomSession {
   room: OnlineRoom
   playerId: string
-  source?: OnlineRoomSource
 }
