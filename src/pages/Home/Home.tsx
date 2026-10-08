@@ -41,6 +41,7 @@ export function Home({
 }: Props) {
   const [pendingPokemon, setPendingPokemon] = useState<PokemonSummary | null>(null)
   const canBattle = teams.every((team) => team.pokemon.length > 0) && !battleLoading
+  const duplicateColors = teams.some((team, index) => teams.slice(index + 1).some(other => team.color.toLowerCase() === other.color.toLowerCase()))
 
   function chooseTeam(teamId: string) {
     if (!pendingPokemon) return
@@ -65,6 +66,8 @@ export function Home({
             </Button>
           </div>
         </header>
+
+        {duplicateColors && <p className="team-color-warning" role="status">Alguns times usam a mesma cor. Escolha cores diferentes para facilitar a leitura da batalha.</p>}
 
         <div className="teams-grid">
           {teams.map((team, index) => (
