@@ -150,10 +150,13 @@ function publicRoom(room: StoredRoom): OnlineRoom {
     maxPlayers: room.maxPlayers,
     private: room.private,
     status: room.status,
-    players: room.players.map(({ id, name, host }) => ({
+    players: room.players.map(({ id, name, host, lastSeen }) => ({
       id,
       name,
       host,
+      ready: false,
+      teamSize: 0,
+      lastSeen,
     })),
     createdAt: room.createdAt,
   }
