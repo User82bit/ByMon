@@ -35,6 +35,7 @@ interface LanRoom {
 
 interface DiscoveryPacket {
   magic: typeof DISCOVERY_MAGIC
+  instanceId: string
   kind: 'probe' | 'announce' | 'goodbye'
   room?: {
     id: string
@@ -58,6 +59,7 @@ interface DiscoveredRoom {
 }
 
 interface LanState {
+  instanceId: string
   rooms: Map<string, LanRoom>
   discovered: Map<string, DiscoveredRoom>
   socket: dgram.Socket
@@ -237,8 +239,15 @@ function lanBroadcastAddresses(): string[] {
   return Array.from(addresses)
 }
 
-function sendPacket(state: LanState, packet: DiscoveryPacket, target?: { address: string; port: number }): void {
-  const payload = Buffer.from(JSON.stringify(packet))
+function sendPacket(
+  state: LanState,
+  packet: Omit<DiscoveryPacket, 'instanceId'>,
+  target?: { address: string; port: number },
+): void {
+  const payload = Buffer.from(JSON.stringify({
+    ...packet,
+    instanceId: state.instanceId,
+  }))
 
   if (target) {
     state.socket.send(payload, target.port, target.address)
@@ -277,7 +286,13 @@ function createSocket(state: LanState): void {
       return
     }
 
-    if (packet.magic !== DISCOVERY_MAGIC || !packet.port) return
+    if (
+      packet.magic !== DISCOVERY_MAGIC ||
+      !packet.port ||
+      packet.instanceId === state.instanceId
+    ) {
+      return
+    }
 
     if (packet.kind === 'probe') {
       for (const room of state.rooms.values()) {
@@ -726,6 +741,7 @@ async function handleLanRequest(
 
 function createState(serverPort: number): LanState {
   const state: LanState = {
+    instanceId: randomUUID(),
     rooms: new Map(),
     discovered: new Map(),
     socket: dgram.createSocket({ type: 'udp4', reuseAddr: true }),
