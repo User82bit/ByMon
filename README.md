@@ -1,75 +1,32 @@
-# React + TypeScript + Vite
+# ByMon
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Simulador web de batalhas entre times de Pokémon.
 
-Currently, two official plugins are available:
+## Mecânica
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Começa com **Time A** e **Time B**, com nomes editáveis.
+- Permite adicionar mais times.
+- Cada time aceita de 1 a 6 Pokémon.
+- O mesmo Pokémon pode existir em times diferentes, mas não pode se repetir dentro do mesmo time.
+- A seleção usa a PokéAPI para nome, tipos e artes oficiais.
+- A Pokédex possui filtro por tipo e pesquisa por nome.
+- Pokémon podem ser arrastados para os times.
+- Ao iniciar a batalha, os dados completos são carregados da PokéAPI.
+- A simulação usa HP, Attack, Defense, Special Attack, Special Defense e Speed, além de STAB e efetividade dos tipos.
+- Speed decide quem ataca primeiro; em empate, o time que aparece primeiro vence a prioridade.
+- O Pokémon vencedor de um duelo continua ativo e enfrenta o próximo Pokémon das outras equipes, até restar apenas uma equipe.
+- A tela de batalha mostra os atributos coletados, os confrontos, os turnos e o resultado.
+- O botão **Retornar** reinicia a configuração para os dois times primários.
 
-## React Compiler
+## Organização
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- `pages/`: telas Home e Battle.
+- `components/`: componentes reutilizáveis.
+- `layout/`: estrutura geral.
+- `components/ui/`: elementos básicos de interface.
+- `services/`: comunicação com a PokéAPI.
+- `data/typeChart.ts`: matriz de forças, fraquezas e imunidades.
+- `types/`: modelos TypeScript.
+- `utils/`: regras de batalha e formatação.
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
-
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
+Fonte: https://pokeapi.co/docs/v2

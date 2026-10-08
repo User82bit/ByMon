@@ -1,0 +1,1 @@
+import type {PropsWithChildren} from 'react';import './MainLayout.css';export function MainLayout({children}:PropsWithChildren){return <div className="layout"><div className="topbar"><strong>ByMon</strong><span>Simulador de batalhas Pokémon</span></div><div className="content">{children}</div></div>}
