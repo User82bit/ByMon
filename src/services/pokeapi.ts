@@ -9,8 +9,13 @@ interface NamedResource {
   url: string
 }
 
-interface PokemonListResponse {
-  results: NamedResource[]
+interface PokedexEntry {
+  entry_number: number
+  pokemon_species: NamedResource
+}
+
+interface NationalPokedexResponse {
+  pokemon_entries: PokedexEntry[]
 }
 
 interface TypeResponse {
@@ -72,18 +77,18 @@ async function fetchJson<T>(url: string, description: string, attempts = 3): Pro
 }
 
 async function loadCatalog(): Promise<PokemonSummary[]> {
-  const data = await fetchJson<PokemonListResponse>(
-    API_BASE + encodeURIComponent('/pokemon?limit=2000&offset=0'),
-    'Falha ao carregar a lista de Pokémon',
+  const data = await fetchJson<NationalPokedexResponse>(
+    API_BASE + encodeURIComponent('/pokedex/national'),
+    'Falha ao carregar a National Pokédex',
   )
 
-  return data.results
-    .map((pokemon) => {
-      const id = parseId(pokemon.url)
+  return data.pokemon_entries
+    .map((entry) => {
+      const id = parseId(entry.pokemon_species.url)
 
       return {
         id,
-        name: pokemon.name,
+        name: entry.pokemon_species.name,
         types: [],
         imageUrl: artworkUrl(id),
       }
@@ -126,8 +131,14 @@ export async function getPokemonOfType(type: PokemonTypeName): Promise<Set<strin
 
 export async function enrichPokemonTypes(
   catalog: PokemonSummary[],
-  onProgress?: (catalog: PokemonSummary[]) => void,
 ): Promise<PokemonSummary[]> {
+  const typeSets = await Promise.all(
+    POKEMON_TYPES.map(async (type) => ({
+      type,
+      names: await getPokemonOfType(type),
+    })),
+  )
+
   const byName = new Map(
     catalog.map((pokemon) => [
       pokemon.name,
@@ -135,21 +146,13 @@ export async function enrichPokemonTypes(
     ]),
   )
 
-  for (const type of POKEMON_TYPES) {
-    try {
-      const names = await getPokemonOfType(type)
+  for (const { type, names } of typeSets) {
+    for (const name of names) {
+      const pokemon = byName.get(name)
 
-      for (const name of names) {
-        const pokemon = byName.get(name)
-
-        if (pokemon && !pokemon.types.includes(type)) {
-          pokemon.types.push(type)
-        }
+      if (pokemon && !pokemon.types.includes(type)) {
+        pokemon.types.push(type)
       }
-
-      onProgress?.(Array.from(byName.values()).sort((a, b) => a.id - b.id))
-    } catch {
-      // A falha em um tipo não impede os demais tipos de serem carregados.
     }
   }
 
