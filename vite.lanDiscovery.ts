@@ -415,7 +415,9 @@ async function forward(
           ? parsed.error
           : 'Não foi possível comunicar com a sala LAN.'
 
-      throw new Error(error)
+      const remoteError = new Error(error) as Error & { status?: number }
+      remoteError.status = response.status
+      throw remoteError
     }
 
     return parsed
@@ -762,16 +764,24 @@ export function bymonLanDiscoveryPlugin(): Plugin {
           await handleLanRequest(request, response, state)
         } catch (error) {
           console.error('[ByMon LAN]', error)
-          json(
-            response,
-            {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : 'Servidor LAN indisponível.',
-            },
-            500,
-          )
+          const status =
+          error &&
+          typeof error === 'object' &&
+          'status' in error &&
+          typeof error.status === 'number'
+            ? error.status
+            : 500
+
+        json(
+          response,
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Servidor LAN indisponível.',
+          },
+          status,
+        )
         }
       })
 
