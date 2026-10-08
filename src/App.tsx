@@ -110,7 +110,7 @@ export default function App() {
       const data = await Promise.all(all.map((pokemon) => getPokemonBattleData(pokemon)))
       const map = new Map(data.map((pokemon) => [pokemon.id, pokemon]))
       setDetails(map)
-      setResult(simulateBattle(teams, map))
+      setResult(await simulateBattle(teams, map))
       setScreen('battle')
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (e) {
