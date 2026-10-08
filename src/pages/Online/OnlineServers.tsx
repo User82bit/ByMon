@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '../../components/ui/Button'
-import { createOnlineRoom, joinOnlineRoom, listOnlineRooms } from '../../services/onlineRooms'
+import { createOnlineRoom, joinOnlineRoom, listOnlineRooms, ONLINE_LAN_MODE } from '../../services/onlineRooms'
 import type { RoomListItem, RoomSession } from '../../types/online'
 import './OnlineServers.css'
 
@@ -117,10 +117,24 @@ export function OnlineServers({
         <div>
           <b>BYMON ONLINE</b>
           <h1>Salas de batalha</h1>
-          <p>Crie uma sala ou entre em uma partida existente.</p>
+          <p>
+            {ONLINE_LAN_MODE
+              ? 'Modo LAN ativo: as salas ficam disponíveis para os dispositivos conectados à mesma rede.'
+              : 'Crie uma sala ou entre em uma partida existente.'}
+          </p>
         </div>
         <Button variant="secondary" onClick={onBack}>Voltar</Button>
       </header>
+
+      {ONLINE_LAN_MODE && (
+        <section className="online-lan-notice">
+          <strong>Servidor LAN local</strong>
+          <p>
+            Esta máquina está servindo as salas pela própria rede. Nos outros dispositivos,
+            abra o ByMon usando o endereço IP desta máquina na rede local.
+          </p>
+        </section>
+      )}
 
       <section className="online-page__bar">
         <label>
