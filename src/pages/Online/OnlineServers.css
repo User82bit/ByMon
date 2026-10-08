@@ -1,3 +1,4 @@
+.online-room__title{display:flex;align-items:center;gap:7px}.online-room__tag{padding:3px 7px;border-radius:999px;background:rgba(76,153,116,.14);border:1px solid rgba(76,153,116,.2);color:#3f7c5a;font-size:.63rem;font-weight:800;letter-spacing:.04em}
 .online-page,.online-lobby{padding:8px 0 40px}
 .online-page__header,.online-lobby__header{display:flex;justify-content:space-between;gap:14px;align-items:end;margin-bottom:14px}
 .online-page__header b,.online-lobby__header b{color:var(--accent);font-size:.74rem;letter-spacing:.08em}
