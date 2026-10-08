@@ -182,11 +182,7 @@ function pruneState(state: LanState): void {
 
   const now = Date.now()
   for (const [id, entry] of state.discovered) {
-    if (
-      now - entry.lastSeen > DISCOVERY_TTL_MS ||
-      !entry.room ||
-      entry.room.status !== 'waiting'
-    ) {
+    if (now - entry.lastSeen > DISCOVERY_TTL_MS || !entry.room) {
       state.discovered.delete(id)
     }
   }
