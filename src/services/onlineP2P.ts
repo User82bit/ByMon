@@ -144,7 +144,9 @@ export class OnlineP2PHost {
   syncRoom(room: OnlineRoom): void {
     if (this.closed) return
 
-    this.status = room.status
+    if (this.status !== 'battle' || room.status === 'battle') {
+      this.status = room.status
+    }
 
     const activeIds = new Set(room.players.map((player) => player.id))
 
