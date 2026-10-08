@@ -85,7 +85,7 @@ function makePlayerStates(room: OnlineRoom): Map<string, P2PPlayerState> {
         name: player.name,
         host: player.host,
         ready: false,
-        teamPokemonIds: [],
+        teamPokemonIds: [], teamColor: '#1E88E5',
       },
     ]),
   )
@@ -162,7 +162,7 @@ export class OnlineP2PHost {
           name: player.name,
           host: player.host,
           ready: false,
-          teamPokemonIds: [],
+          teamPokemonIds: [], teamColor: '#1E88E5',
         })
       }
     }

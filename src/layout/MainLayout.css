@@ -1,40 +1,7 @@
-.layout{
-  min-height:100svh;
-  background:
-    linear-gradient(rgba(238,241,237,.96),rgba(238,241,237,.96)),
-    var(--bg);
-}
-.topbar{
-  position:sticky;
-  top:0;
-  z-index:30;
-  min-height:58px;
-  display:flex;
-  align-items:center;
-  gap:12px;
-  padding:8px 22px;
-  border-bottom:1px solid var(--border);
-  background:rgba(255,255,255,.58);
-  backdrop-filter:blur(18px) saturate(125%);
-  -webkit-backdrop-filter:blur(18px) saturate(125%);
-  box-shadow:0 3px 18px rgba(55,72,64,.05);
-}
-.topbar strong{
-  color:var(--accent-strong);
-  font-size:1.02rem;
-  letter-spacing:-.02em;
-}
-.topbar span{
-  color:var(--muted);
-  font-size:.82rem;
-}
-.content{
-  width:min(1450px,calc(100% - 28px));
-  margin:auto;
-  padding:14px 0 28px;
-}
-@media(max-width:540px){
-  .topbar{padding-inline:14px}
-  .topbar span{font-size:.76rem}
-  .content{width:min(100% - 18px,1450px);padding-top:10px}
-}
+.layout{min-height:100svh;background:radial-gradient(ellipse at 10% 0%,color-mix(in oklab,var(--team-a) 55%,transparent),transparent 42%),radial-gradient(ellipse at 90% 0%,color-mix(in oklab,var(--team-b) 55%,transparent),transparent 44%),radial-gradient(ellipse at 50% 100%,#2A2160 0%,transparent 58%),#141A33;background-attachment:fixed}
+.topbar{position:sticky;top:0;z-index:30;min-height:64px;display:flex;align-items:center;gap:12px;padding:8px 22px;border-bottom:1px solid rgba(255,255,255,.22);background:rgba(20,26,51,.72);backdrop-filter:blur(28px) saturate(160%);box-shadow:0 10px 32px rgba(6,8,24,.3)}
+.topbar strong{display:flex;align-items:center;gap:11px;color:#F4F6FF;font-family:'Chakra Petch',system-ui,sans-serif;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.topbar strong::before{content:"";width:25px;height:25px;border-radius:50%;background:var(--team-a);box-shadow:11px 0 0 color-mix(in oklab,var(--team-b) 88%,transparent),0 0 18px color-mix(in oklab,var(--team-a) 40%,transparent)}
+.topbar span{color:#AEB6D6;font-size:.82rem}
+.content{width:min(1450px,calc(100% - 28px));margin:auto;padding:14px 0 28px}
+@media(max-width:540px){.topbar{padding-inline:14px}.topbar span{font-size:.76rem}.content{width:min(100% - 18px,1450px);padding-top:10px}}

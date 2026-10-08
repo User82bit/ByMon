@@ -1,18 +1,27 @@
-.battle{padding-top:2px}
-.battle header{display:flex;justify-content:space-between;align-items:end;gap:16px;padding:18px;border:1px solid var(--border);border-radius:18px;background:rgba(255,255,255,.58);box-shadow:var(--shadow-soft);backdrop-filter:blur(16px) saturate(118%);-webkit-backdrop-filter:blur(16px) saturate(118%)}
-.battle header b{color:var(--accent);font-size:.76rem;text-transform:uppercase;letter-spacing:.08em}
-.battle h1{margin:4px 0;color:#263630;letter-spacing:-.025em}
-.battle p{color:var(--muted)}
-.battle header p{margin:5px 0 0;font-size:.82rem}
-.battle-teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;margin:14px 0}
-.battle-teams article,.log{padding:14px;border:1px solid var(--border);border-radius:17px;background:rgba(255,255,255,.54);box-shadow:var(--shadow-soft);backdrop-filter:blur(14px) saturate(115%);-webkit-backdrop-filter:blur(14px) saturate(115%)}
-.battle-teams h2,.log h2{margin-top:0;color:#2d3c35}
-.battle-pokemon{display:grid;grid-template-columns:58px 1fr;gap:8px;padding:8px;margin-top:7px;border:1px solid rgba(255,255,255,.78);border-radius:12px;background:rgba(248,250,248,.46)}
-.battle-pokemon img{width:58px;height:58px;object-fit:contain}
-.battle-pokemon small{display:block;color:var(--muted);margin-top:4px;line-height:1.45}
-.event{padding:10px;margin-top:7px;border:1px solid rgba(91,108,99,.08);border-radius:11px;background:rgba(248,250,248,.46)}
-.event-duel{background:rgba(225,238,231,.55)}
-.event-faint{background:rgba(233,245,237,.55)}
-.event-result{background:rgba(232,246,238,.68)}
-.event p{margin:3px 0 0}
-@media(max-width:650px){.battle header{align-items:flex-start;flex-direction:column;gap:12px}.battle header .ui-button{width:100%}.battle-teams{grid-template-columns:1fr}}
+.battle{padding-top:4px;color:#F4F6FF}
+.battle__header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px;border:1px solid rgba(255,255,255,.22);border-radius:28px;background:rgba(255,255,255,.1);backdrop-filter:blur(28px) saturate(160%);box-shadow:0 18px 48px rgba(6,8,24,.45)}
+.battle h1,.battle h2{font-family:'Chakra Petch',system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.battle h1{margin:0;font-size:28px}.battle p{color:#AEB6D6}.battle__header p{margin:4px 0 0}
+.battle__controls{display:flex;gap:8px}
+.battle-arena{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:clamp(8px,2vw,26px);margin:22px 0}
+.battle-card{position:relative;display:flex;flex-direction:column;align-items:center;min-width:0;min-height:360px;padding:12px 16px 18px;border:1px solid color-mix(in oklab,var(--team-color) 70%,rgba(255,255,255,.28));border-radius:18px;background:linear-gradient(155deg,color-mix(in oklab,var(--team-color) 28%,rgba(255,255,255,.13)),rgba(20,26,51,.84));box-shadow:0 18px 40px color-mix(in oklab,var(--team-color) 22%,transparent),inset 0 1px 0 rgba(255,255,255,.35);text-align:center;transition:filter .25s,opacity .25s}
+.battle-card>img{width:min(100%,260px);aspect-ratio:1;object-fit:contain;margin-top:-26px;filter:drop-shadow(0 12px 14px rgba(0,0,0,.35))}
+.battle-card h2{margin:0;font-size:clamp(18px,2.2vw,28px);overflow-wrap:anywhere}
+.battle-card>strong{margin-top:5px;color:#F4F6FF}.battle-card__types{display:flex;justify-content:center;flex-wrap:wrap;gap:5px;margin:9px 0}
+.variant-chip{margin:5px 0;padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.18);font-size:12px}
+.hp-track{width:100%;height:12px;margin:10px 0 5px;overflow:hidden;border:1px solid rgba(255,255,255,.28);border-radius:999px;background:rgba(6,8,24,.6);box-shadow:inset 0 2px 5px rgba(0,0,0,.3)}
+.hp-track span{display:block;height:100%;border-radius:inherit;background:var(--team-color);box-shadow:0 0 12px color-mix(in oklab,var(--team-color) 65%,transparent);transition:width .55s ease}
+.battle-card small{font-family:'Chakra Petch',system-ui,sans-serif;font-size:14px;font-variant-numeric:tabular-nums}
+.battle-card.is-active{box-shadow:0 0 0 2px var(--team-color),0 18px 48px color-mix(in oklab,var(--team-color) 30%,transparent),inset 0 1px 0 rgba(255,255,255,.35)}
+.battle-card.is-defeated{filter:grayscale(1);opacity:.65}.defeated-label{margin-top:6px;color:#FF6B6B}
+.battle-vs{display:flex;flex-direction:column;align-items:center;gap:8px;max-width:180px;text-align:center}
+.battle-vs>b{font-family:'Chakra Petch',system-ui,sans-serif;font-size:28px;color:#FFD65A}
+.battle-vs>strong{font-size:14px;overflow-wrap:anywhere}.battle-vs>span{font-family:'Chakra Petch',system-ui,sans-serif;font-size:28px;color:#FFD65A}.battle-vs small{color:#FFD65A}
+.battle-result,.log{padding:16px;border:1px solid rgba(255,255,255,.22);border-radius:28px;background:rgba(255,255,255,.1);backdrop-filter:blur(28px) saturate(160%);box-shadow:0 18px 48px rgba(6,8,24,.45)}
+.battle-result>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.battle-result article{display:flex;align-items:center;gap:8px;padding:9px;border:1px solid var(--team-color);border-radius:14px;background:color-mix(in oklab,var(--team-color) 20%,rgba(20,26,51,.8))}
+.battle-result img{width:54px;height:54px;object-fit:contain}.battle-result span{margin-left:auto;font-size:12px}
+.log{margin-top:14px}.log h2{margin-top:0}.event{display:flex;align-items:center;gap:10px;margin-top:7px;padding:10px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(20,26,51,.5)}
+.event>img{width:38px;height:38px;object-fit:contain;flex:0 0 auto}.event>div{min-width:0}.event p{margin:3px 0 0;font-size:14px}.event-duel{border-color:rgba(255,214,90,.3)}.event-faint{border-color:rgba(255,107,107,.45)}
+@media(max-width:620px){.battle__header{align-items:flex-start;flex-direction:column}.battle__controls{width:100%}.battle__controls>*{flex:1}.battle-arena{grid-template-columns:minmax(0,1fr);gap:22px}.battle-card{min-height:unset}.battle-card>img{width:min(72%,220px)}.battle-vs{max-width:none;grid-row:2}.battle-arena .battle-card:last-child{grid-row:3}.battle-vs>b{font-size:20px}.battle-card h2{font-size:22px}}
+@media(prefers-reduced-motion:reduce){.battle-card,.hp-track span{transition:opacity .15s ease}}

@@ -1,4 +1,4 @@
-import type { DragEvent } from 'react'
+import { useState, type DragEvent } from 'react'
 import type { PokemonSummary } from '../../types/pokemon'
 import { formatPokemonName } from '../../utils/format'
 import { TypeBadge } from '../ui/TypeBadge'
@@ -10,6 +10,12 @@ interface Props {
 }
 
 export function PokemonCard({ pokemon, onSelect }: Props) {
+  const [imageStatus, setImageStatus] = useState(0)
+
+  function handleImageError() {
+    setImageStatus((current) => Math.min(current + 1, 2))
+  }
+
   function handleDragStart(event: DragEvent<HTMLDivElement>) {
     event.dataTransfer.setData('application/x-bymon-pokemon', JSON.stringify(pokemon))
     event.dataTransfer.effectAllowed = 'copy'
@@ -31,7 +37,20 @@ export function PokemonCard({ pokemon, onSelect }: Props) {
       }}
     >
       <div className="pokemon-card__image-wrap">
-        <img src={pokemon.imageUrl} alt={formatPokemonName(pokemon.name)} loading="lazy" />
+        {imageStatus < 2 ? (
+          <img
+            src={imageStatus === 0
+              ? pokemon.imageUrl
+              : 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/' + pokemon.id + '.png'}
+            alt={formatPokemonName(pokemon.name)}
+            loading="lazy"
+            onError={handleImageError}
+          />
+        ) : (
+          <div className="pokemon-card__placeholder" role="img" aria-label={'Arte indisponível para ' + formatPokemonName(pokemon.name)}>
+            <span>?</span>
+          </div>
+        )}
       </div>
       <div className="pokemon-card__content">
         <strong>{formatPokemonName(pokemon.name)}</strong>

@@ -6,4 +6,4 @@
 .teams-section header>div:last-child{display:flex;gap:8px}
 .teams-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:9px;margin-top:11px}
 .teams-section>small{display:block;margin-top:7px;color:#936d34;font-size:.72rem}
-@media(max-width:700px){.teams-section header{align-items:flex-start;flex-direction:column}.teams-section header>div:last-child{width:100%}.teams-section header>div:last-child .ui-button{flex:1}.teams-grid{grid-template-columns:1fr}}
+@media(max-width:700px){.teams-section header{align-items:flex-start;flex-direction:column}.teams-section header>div:last-child{width:100%}.teams-section header>div:last-child .ui-button{flex:1}.teams-grid{grid-template-columns:1fr}}.team-color-warning{margin:8px 0 0;padding:9px 12px;border:1px solid #FFD65A66;border-radius:12px;color:#FFD65A;background:rgba(20,26,51,.7);font-size:.82rem}
