@@ -1,7 +1,3 @@
-.online-room__title{display:flex;align-items:center;gap:7px}.online-room__tag{padding:3px 7px;border-radius:999px;background:rgba(76,153,116,.14);border:1px solid rgba(76,153,116,.2);color:#3f7c5a;font-size:.63rem;font-weight:800;letter-spacing:.04em}
-.online-lan-notice{margin-bottom:12px;padding:12px 14px;border:1px solid rgba(79,116,101,.18);border-radius:14px;background:rgba(126,168,149,.1);color:#456557;box-shadow:var(--shadow-soft);backdrop-filter:blur(14px) saturate(120%);-webkit-backdrop-filter:blur(14px)}
-.online-lan-notice strong{display:block;font-size:.82rem}
-.online-lan-notice p{margin:4px 0 0;color:#5c7569;font-size:.75rem;line-height:1.45}
 .online-page,.online-lobby{padding:8px 0 40px}
 .online-page__header,.online-lobby__header{display:flex;justify-content:space-between;gap:14px;align-items:end;margin-bottom:14px}
 .online-page__header b,.online-lobby__header b{color:var(--accent);font-size:.74rem;letter-spacing:.08em}
