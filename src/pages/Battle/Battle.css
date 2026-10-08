@@ -1,1 +1,18 @@
-.battle header{display:flex;justify-content:space-between;align-items:end;padding:20px;border:1px solid #dbe3ec;border-radius:16px;background:#fff}.battle h1{margin:3px 0}.battle p{color:#64748b}.battle-teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;margin:14px 0}.battle-teams article,.log{padding:14px;border:1px solid #dbe3ec;border-radius:16px;background:#fff}.battle-pokemon{display:grid;grid-template-columns:58px 1fr;gap:8px;padding:7px;margin-top:7px;border-radius:10px;background:#f8fafc}.battle-pokemon img{width:58px;height:58px;object-fit:contain}.battle-pokemon small{display:block;color:#64748b;margin-top:4px}.event{padding:9px;margin-top:7px;border-radius:10px;background:#f8fafc}.event-duel{background:#eff6ff}.event-faint,.event-result{background:#ecfdf5}.event p{margin:2px 0}@media(max-width:650px){.battle header{align-items:flex-start;flex-direction:column;gap:12px}}
+.battle{padding-top:2px}
+.battle header{display:flex;justify-content:space-between;align-items:end;gap:16px;padding:18px;border:1px solid var(--border);border-radius:18px;background:rgba(255,255,255,.58);box-shadow:var(--shadow-soft);backdrop-filter:blur(16px) saturate(118%);-webkit-backdrop-filter:blur(16px) saturate(118%)}
+.battle header b{color:var(--accent);font-size:.76rem;text-transform:uppercase;letter-spacing:.08em}
+.battle h1{margin:4px 0;color:#263630;letter-spacing:-.025em}
+.battle p{color:var(--muted)}
+.battle header p{margin:5px 0 0;font-size:.82rem}
+.battle-teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;margin:14px 0}
+.battle-teams article,.log{padding:14px;border:1px solid var(--border);border-radius:17px;background:rgba(255,255,255,.54);box-shadow:var(--shadow-soft);backdrop-filter:blur(14px) saturate(115%);-webkit-backdrop-filter:blur(14px) saturate(115%)}
+.battle-teams h2,.log h2{margin-top:0;color:#2d3c35}
+.battle-pokemon{display:grid;grid-template-columns:58px 1fr;gap:8px;padding:8px;margin-top:7px;border:1px solid rgba(255,255,255,.78);border-radius:12px;background:rgba(248,250,248,.46)}
+.battle-pokemon img{width:58px;height:58px;object-fit:contain}
+.battle-pokemon small{display:block;color:var(--muted);margin-top:4px;line-height:1.45}
+.event{padding:10px;margin-top:7px;border:1px solid rgba(91,108,99,.08);border-radius:11px;background:rgba(248,250,248,.46)}
+.event-duel{background:rgba(225,238,231,.55)}
+.event-faint{background:rgba(233,245,237,.55)}
+.event-result{background:rgba(232,246,238,.68)}
+.event p{margin:3px 0 0}
+@media(max-width:650px){.battle header{align-items:flex-start;flex-direction:column;gap:12px}.battle header .ui-button{width:100%}.battle-teams{grid-template-columns:1fr}}

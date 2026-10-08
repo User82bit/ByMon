@@ -1,17 +1,48 @@
-.ui-button {
-  border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 10px 16px;
-  font: inherit;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 120ms ease, opacity 120ms ease;
+.ui-button{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:40px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:9px 15px;
+  font:inherit;
+  font-size:.92rem;
+  font-weight:750;
+  line-height:1.1;
+  cursor:pointer;
+  background:var(--surface);
+  box-shadow:var(--shadow-soft);
+  backdrop-filter:blur(14px) saturate(120%);
+  -webkit-backdrop-filter:blur(14px) saturate(120%);
+  transition:transform 140ms ease,box-shadow 140ms ease,background 140ms ease,border-color 140ms ease,opacity 140ms ease;
 }
-
-.ui-button:hover:not(:disabled) { transform: translateY(-1px); }
-.ui-button:disabled { cursor: not-allowed; opacity: 0.45; }
-
-.ui-button--primary { color: white; background: #2b6cb0; }
-.ui-button--secondary { color: #1f2937; background: #e5e7eb; border-color: #d1d5db; }
-.ui-button--danger { color: white; background: #c0392b; }
+.ui-button:hover:not(:disabled){
+  transform:translateY(-1px);
+  box-shadow:0 10px 24px rgba(55,72,64,.11);
+}
+.ui-button:active:not(:disabled){transform:translateY(0)}
+.ui-button:focus-visible{
+  outline:3px solid rgba(79,116,101,.2);
+  outline-offset:2px;
+}
+.ui-button:disabled{cursor:not-allowed;opacity:.48;box-shadow:none}
+.ui-button--primary{
+  color:var(--accent-strong);
+  border-color:rgba(79,116,101,.24);
+  background:rgba(126,168,149,.22);
+}
+.ui-button--primary:hover:not(:disabled){background:rgba(126,168,149,.3)}
+.ui-button--secondary{
+  color:#45534d;
+  border-color:rgba(91,108,99,.14);
+  background:rgba(255,255,255,.54);
+}
+.ui-button--secondary:hover:not(:disabled){background:rgba(255,255,255,.72)}
+.ui-button--danger{
+  color:#7f3f3f;
+  border-color:rgba(154,79,79,.17);
+  background:var(--danger-soft);
+}
+.ui-button--danger:hover:not(:disabled){background:rgba(154,79,79,.16)}

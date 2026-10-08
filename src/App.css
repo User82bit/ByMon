@@ -1,1 +1,4 @@
-*{box-sizing:border-box}button,input{font:inherit}body{margin:0}
+*{box-sizing:border-box}
+button,input{font:inherit}
+button{color:inherit}
+body{margin:0}
