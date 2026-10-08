@@ -19,6 +19,7 @@ interface Props {
   onRetryCatalog: () => void
   onBattle: () => void
   battleLoading: boolean
+  onOnline: () => void
 }
 
 export function Home({
@@ -34,6 +35,7 @@ export function Home({
   onRetryCatalog,
   onBattle,
   battleLoading,
+  onOnline,
 }: Props) {
   const [pendingPokemon, setPendingPokemon] = useState<PokemonSummary | null>(null)
   const canBattle = teams.every((team) => team.pokemon.length > 0) && !battleLoading
@@ -54,6 +56,7 @@ export function Home({
             <p>Arraste Pokémon para um time ou clique em um Pokémon para escolher o destino.</p>
           </div>
           <div>
+            <Button variant="secondary" onClick={onOnline}>Online</Button>
             <Button variant="secondary" onClick={onAddTeam}>+ Time</Button>
             <Button disabled={!canBattle} onClick={onBattle}>
               {battleLoading ? 'Preparando...' : 'Batalhar'}

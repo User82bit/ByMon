@@ -1,0 +1,12 @@
+.online-lobby__card{padding:14px}
+.online-lobby__section-header{display:flex;justify-content:space-between;gap:12px;align-items:end;margin-bottom:9px}
+.online-lobby__section-header>div{display:flex;align-items:baseline;gap:8px}
+.online-lobby__section-header>span{padding:4px 8px;border-radius:999px;background:rgba(126,168,149,.14);color:#4f7465;font-size:.7rem;font-weight:800}
+.online-player{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 0;border-top:1px solid rgba(91,108,99,.08)}
+.online-player div{display:grid;gap:2px}
+.online-player strong{color:#2d3c35}
+.online-player small{color:var(--muted);font-size:.72rem}
+.online-player>span{font-size:.7rem;color:#4f7465;font-weight:800}
+.online-lobby__actions{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid rgba(91,108,99,.08)}
+.online-lobby__next{margin-top:12px;padding:14px}
+@media(max-width:600px){.online-lobby__actions{align-items:stretch;flex-direction:column}.online-lobby__actions .ui-button{width:100%}}
