@@ -12,6 +12,7 @@ interface Props {
   loading: boolean
   error: string | null
   onRenameTeam: (id: string, name: string) => void
+  onChangeTeamColor: (id: string, color: string) => void
   onRemoveTeam: (id: string) => void
   onAddTeam: () => void
   onDropPokemon: (id: string, pokemon: PokemonSummary) => void
@@ -28,6 +29,7 @@ export function Home({
   loading,
   error,
   onRenameTeam,
+  onChangeTeamColor,
   onRemoveTeam,
   onAddTeam,
   onDropPokemon,
@@ -72,6 +74,7 @@ export function Home({
               index={index}
               canRemove={teams.length > 2}
               onRename={onRenameTeam}
+              onChangeColor={onChangeTeamColor}
               onRemove={onRemoveTeam}
               onDropPokemon={onDropPokemon}
               onRemovePokemon={onRemovePokemon}

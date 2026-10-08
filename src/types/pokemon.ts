@@ -14,14 +14,20 @@ export interface PokemonStats {
   speed: number
 }
 
+export type PokemonKind = 'normal' | 'gmax' | 'dynamax'
+
 export interface PokemonSummary {
   id: number
   name: string
   types: PokemonTypeName[]
   imageUrl: string
+  kind: PokemonKind
+  baseId?: number
 }
 
 export interface PokemonBattleData extends PokemonSummary {
+  speciesId: number
+  moves: string[]
   stats: PokemonStats
   abilities: string[]
   height: number
@@ -32,38 +38,67 @@ export interface PokemonBattleData extends PokemonSummary {
 export interface Team {
   id: string
   name: string
+  color: string
   pokemon: PokemonSummary[]
 }
 
 export interface BattleFighter {
   teamId: string
   teamName: string
+  teamColor: string
   teamIndex: number
   pokemon: PokemonBattleData
   currentHp: number
+  maxHp: number
+}
+
+export interface BattleActor {
+  id: number
+  name: string
+  imageUrl: string
+  kind: PokemonKind
+  teamId: string
+  teamName: string
+  teamColor: string
+  hp: number
+  maxHp: number
+  types: PokemonTypeName[]
+}
+
+export interface BattleMove {
+  name: string
+  type: PokemonTypeName
+  power: number
+  damageClass: 'physical' | 'special'
 }
 
 export interface BattleEvent {
   id: string
-  kind: 'duel' | 'turn' | 'faint' | 'result'
+  kind: 'duel' | 'turn' | 'miss' | 'faint' | 'result'
   title: string
   detail: string
-  attacker?: string
-  defender?: string
-  winner?: string
-  winnerTeam?: string
-  effectiveness?: number
+  attacker?: BattleActor
+  defender?: BattleActor
+  move?: BattleMove
   damage?: number
+  effectiveness?: number
+  critical?: boolean
+  hpBefore?: number
+  hpAfter?: number
+  winner?: BattleActor
 }
 
 export interface BattleResult {
   winnerTeamId: string
   winnerTeamName: string
+  seed: string
   events: BattleEvent[]
   remaining: Array<{
     teamId: string
     teamName: string
     pokemonName: string
+    imageUrl: string
+    teamColor: string
     currentHp: number
     maxHp: number
   }>

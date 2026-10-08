@@ -12,13 +12,14 @@ import './App.css'
 
 function emptyTeams(): Team[] {
   return [
-    { id: 'team-1', name: 'Time A', pokemon: [] },
-    { id: 'team-2', name: 'Time B', pokemon: [] },
+    { id: 'team-1', name: 'Time A', color: '#E53935', pokemon: [] },
+    { id: 'team-2', name: 'Time B', color: '#1E88E5', pokemon: [] },
   ]
 }
 
 function createTeam(): Team {
-  return { id: 'team-' + crypto.randomUUID(), name: 'Novo Time', pokemon: [] }
+  const colors = ['#43A047', '#FB8C00', '#8E24AA', '#EC407A', '#00ACC1', '#FDD835', '#6D4C41', '#546E7A']
+  return { id: 'team-' + crypto.randomUUID(), name: 'Novo Time', color: colors[Math.floor(Math.random() * colors.length)], pokemon: [] }
 }
 
 const PLAYER_NAME_KEY = 'bymon-player-name'
@@ -63,6 +64,10 @@ export default function App() {
     setTeams((current) =>
       current.map((team) => team.id === id ? { ...team, name: name || 'Time sem nome' } : team),
     )
+  }
+
+  function recolor(id: string, color: string) {
+    setTeams((current) => current.map((team) => team.id === id ? { ...team, color } : team))
   }
 
   function addTeam() {
@@ -149,6 +154,7 @@ export default function App() {
           loading={loading}
           error={error}
           onRenameTeam={rename}
+          onChangeTeamColor={recolor}
           onRemoveTeam={removeTeam}
           onAddTeam={addTeam}
           onDropPokemon={addPokemon}
