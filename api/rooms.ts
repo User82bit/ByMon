@@ -1,13 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { createClient, type RedisClientType } from 'redis'
+import { createClient } from 'redis'
 import type { OnlinePlayer, OnlineRoom } from '../src/types/online'
 
 const ROOM_TTL_SECONDS = 60 * 60 * 6
 const PLAYER_STALE_MS = 30_000
 const ROOM_PREFIX = 'bymon:room:'
 const PUBLIC_ROOMS_KEY = 'bymon:rooms:public'
-
-type RoomAction = 'create' | 'join' | 'heartbeat' | 'leave' | 'ready'
 
 interface CreateBody {
   action: 'create'
@@ -39,10 +37,10 @@ type StoredRoom = OnlineRoom & { passwordHash?: string }
 
 declare global {
   // eslint-disable-next-line no-var
-  var __bymonRedis: Promise<RedisClientType> | undefined
+  var __bymonRedis: Promise<ReturnType<typeof createClient>> | undefined
 }
 
-function getRedis(): Promise<RedisClientType> {
+function getRedis(): Promise<ReturnType<typeof createClient>> {
   if (!process.env.REDIS_URL) {
     throw new Error('REDIS_URL não configurada.')
   }
@@ -123,25 +121,15 @@ function publicRoom(room: StoredRoom): Record<string, unknown> {
   }
 }
 
-async function findRoomId(redis: RedisClientType, body: JoinBody): Promise<string | null> {
+async function findRoomId(redis: ReturnType<typeof createClient>, body: JoinBody): Promise<string | null> {
   if (body.roomId) return body.roomId
 
   if (!body.code) return null
 
-  const ids = await redis.sMembers(PUBLIC_ROOMS_KEY)
-  const candidates = ids.length > 0 ? ids : await redis.keys(ROOM_PREFIX + '*')
-
-  for (const id of candidates) {
-    const roomRaw = await redis.get(roomKey(id))
-    if (!roomRaw) continue
-    const room = JSON.parse(roomRaw) as OnlineRoom
-    if (room.code.toUpperCase() === body.code.trim().toUpperCase()) return room.id
-  }
-
-  return null
+  return redis.get('bymon:room-code:' + body.code.trim().toUpperCase())
 }
 
-async function listRooms(redis: RedisClientType): Promise<Response> {
+async function listRooms(redis: ReturnType<typeof createClient>): Promise<Response> {
   const ids = await redis.sMembers(PUBLIC_ROOMS_KEY)
   const rooms: Record<string, unknown>[] = []
   const now = Date.now()
@@ -166,7 +154,7 @@ async function listRooms(redis: RedisClientType): Promise<Response> {
   return json({ rooms })
 }
 
-async function createRoom(redis: RedisClientType, body: CreateBody): Promise<Response> {
+async function createRoom(redis: ReturnType<typeof createClient>, body: CreateBody): Promise<Response> {
   const name = cleanName(body.name, 'Sala sem nome', 40)
   const playerName = cleanName(body.playerName, 'Jogador', 20)
   const maxPlayers = normalizeLimit(body.maxPlayers)
@@ -226,7 +214,7 @@ async function createRoom(redis: RedisClientType, body: CreateBody): Promise<Res
   return json({ room: publicRoom(room), playerId }, 201)
 }
 
-async function joinRoom(redis: RedisClientType, body: JoinBody): Promise<Response> {
+async function joinRoom(redis: ReturnType<typeof createClient>, body: JoinBody): Promise<Response> {
   const id = await findRoomId(redis, body)
 
   if (!id) return json({ error: 'Sala não encontrada.' }, 404)
@@ -260,7 +248,7 @@ async function joinRoom(redis: RedisClientType, body: JoinBody): Promise<Respons
   return json({ room: publicRoom(room), playerId })
 }
 
-async function getRoom(redis: RedisClientType, roomId: string, playerId?: string): Promise<Response> {
+async function getRoom(redis: ReturnType<typeof createClient>, roomId: string, playerId?: string): Promise<Response> {
   const raw = await redis.get(roomKey(roomId))
   if (!raw) return json({ error: 'Sala não encontrada.' }, 404)
 
@@ -276,7 +264,7 @@ async function getRoom(redis: RedisClientType, roomId: string, playerId?: string
   return json({ room: publicRoom(room) })
 }
 
-async function updatePlayer(redis: RedisClientType, body: PlayerBody): Promise<Response> {
+async function updatePlayer(redis: ReturnType<typeof createClient>, body: PlayerBody): Promise<Response> {
   const raw = await redis.get(roomKey(body.roomId))
   if (!raw) return json({ error: 'Sala não encontrada.' }, 404)
 
