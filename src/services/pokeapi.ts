@@ -1,6 +1,6 @@
 import { POKEMON_TYPES, type PokemonBattleData, type PokemonSummary, type PokemonTypeName } from '../types/pokemon'
 
-const API_BASE = 'https://pokeapi.co/api/v2'
+const API_BASE = '/api/pokeapi?path='
 const OFFICIAL_ARTWORK_BASE =
   'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork'
 
@@ -73,7 +73,7 @@ async function fetchJson<T>(url: string, description: string, attempts = 3): Pro
 
 async function loadCatalog(): Promise<PokemonSummary[]> {
   const data = await fetchJson<PokemonListResponse>(
-    API_BASE + '/pokemon?limit=2000&offset=0',
+    API_BASE + encodeURIComponent('/pokemon?limit=2000&offset=0'),
     'Falha ao carregar a lista de Pokémon',
   )
 
@@ -111,7 +111,7 @@ export async function getPokemonOfType(type: PokemonTypeName): Promise<Set<strin
   }
 
   const request = fetchJson<TypeResponse>(
-    API_BASE + '/type/' + type,
+    API_BASE + encodeURIComponent('/type/' + type),
     'Falha ao carregar o tipo ' + type,
   )
     .then((data) => new Set(data.pokemon.map((entry) => entry.pokemon.name)))
@@ -159,7 +159,7 @@ export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<Pok
   }
 
   const request = fetchJson<PokemonResponse>(
-    API_BASE + '/pokemon/' + pokemon.id,
+    API_BASE + encodeURIComponent('/pokemon/' + pokemon.id),
     'Falha ao carregar os dados de ' + pokemon.name,
   )
     .then((data) => {
