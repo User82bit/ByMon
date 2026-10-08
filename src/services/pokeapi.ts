@@ -35,7 +35,7 @@ interface PokemonResponse {
 }
 
 let catalogPromise: Promise<PokemonSummary[]> | null = null
-const typeCache = new Map<PokemonTypeName, Promise<Set<string>>>()
+const typeCache = new Map<PokemonTypeName, Promise<Set<number>>>()
 const battleCache = new Map<number, Promise<PokemonBattleData>>()
 
 function parseId(url: string): number {
@@ -108,7 +108,7 @@ export async function getPokemonCatalog(): Promise<PokemonSummary[]> {
   return catalogPromise
 }
 
-export async function getPokemonOfType(type: PokemonTypeName): Promise<Set<string>> {
+export async function getPokemonOfType(type: PokemonTypeName): Promise<Set<number>> {
   const cached = typeCache.get(type)
 
   if (cached) {
@@ -119,7 +119,11 @@ export async function getPokemonOfType(type: PokemonTypeName): Promise<Set<strin
     API_BASE + encodeURIComponent('/type/' + type),
     'Falha ao carregar o tipo ' + type,
   )
-    .then((data) => new Set(data.pokemon.map((entry) => entry.pokemon.name)))
+    .then((data) => new Set(
+      data.pokemon
+        .map((entry) => parseId(entry.pokemon.url))
+        .filter((id) => id > 0),
+    ))
     .catch((error) => {
       typeCache.delete(type)
       throw error
@@ -129,9 +133,7 @@ export async function getPokemonOfType(type: PokemonTypeName): Promise<Set<strin
   return request
 }
 
-export async function enrichPokemonTypes(
-  catalog: PokemonSummary[],
-): Promise<PokemonSummary[]> {
+export async function enrichPokemonTypes(catalog: PokemonSummary[]): Promise<PokemonSummary[]> {
   const typeSets = await Promise.all(
     POKEMON_TYPES.map(async (type) => ({
       type,
@@ -139,16 +141,16 @@ export async function enrichPokemonTypes(
     })),
   )
 
-  const byName = new Map(
+  const byId = new Map(
     catalog.map((pokemon) => [
-      pokemon.name,
+      pokemon.id,
       { ...pokemon, types: [] as PokemonTypeName[] },
     ]),
   )
 
-  for (const { type, names } of typeSets) {
-    for (const name of names) {
-      const pokemon = byName.get(name)
+  for (const { type, ids } of typeSets) {
+    for (const id of ids) {
+      const pokemon = byId.get(id)
 
       if (pokemon && !pokemon.types.includes(type)) {
         pokemon.types.push(type)
