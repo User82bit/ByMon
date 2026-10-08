@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import type { BattleEvent, BattleResult, PokemonBattleData, Team } from '../../types/pokemon'
 import { Button } from '../../components/ui/Button'
 import { TypeBadge } from '../../components/ui/TypeBadge'
@@ -16,7 +16,7 @@ function useBattlePlayback(events: BattleEvent[]) {
   return { index, setIndex, playing, setPlaying }
 }
 
-export function Battle({ result, teams, details, onReturn }: { result: BattleResult; teams: Team[]; details: Map<number, PokemonBattleData>; onReturn: () => void }) {
+export function Battle({ result, onReturn }: { result: BattleResult; teams: Team[]; details: Map<number, PokemonBattleData>; onReturn: () => void }) {
   const playback = useBattlePlayback(result.events)
   const event = result.events[playback.index]
   const actor = event?.attacker
@@ -34,7 +34,7 @@ export function Battle({ result, teams, details, onReturn }: { result: BattleRes
     if (!value) return null
     const hp = hpFor(value.id, value.maxHp)
     const defeated = hp <= 0
-    return <article className={'battle-card' + (defeated ? ' is-defeated' : '') + (isAttacker ? ' is-active' : '')} style={{ '--team-color': value.teamColor } as React.CSSProperties} key={value.id}>
+    return <article className={'battle-card' + (defeated ? ' is-defeated' : '') + (isAttacker ? ' is-active' : '')} style={{ '--team-color': value.teamColor } as CSSProperties} key={value.id}>
       <img src={value.imageUrl} alt={formatPokemonName(value.name)} />
       <h2>{formatPokemonName(value.name.replace(/-dynamax$/, ''))}</h2>
       {value.kind !== 'normal' && <span className="variant-chip">{value.kind === 'gmax' ? 'Gmax' : 'Dynamax'}</span>}
