@@ -1,10 +1,9 @@
-.teams-section{padding:12px 0 9px;border-bottom:1px solid rgba(91,108,99,.1);position:sticky;top:58px;z-index:10;background:rgba(238,241,237,.84);backdrop-filter:blur(18px) saturate(115%);-webkit-backdrop-filter:blur(18px) saturate(115%)}
+.teams-section{padding:12px 0 9px;border-bottom:1px solid rgba(91,108,99,.1)}
 .teams-section header{display:flex;justify-content:space-between;gap:14px;align-items:end}
 .teams-section header>div:first-child>b{color:var(--accent);font-size:.74rem;letter-spacing:.08em;text-transform:uppercase}
 .teams-section h1{margin:3px 0 4px;color:#263630;font-size:1.35rem;letter-spacing:-.025em}
 .teams-section p{margin:0;color:var(--muted);font-size:.76rem}
 .teams-section header>div:last-child{display:flex;gap:8px}
-.teams-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:9px;margin-top:11px;max-height:44vh;overflow:auto;padding:2px}
+.teams-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:9px;margin-top:11px}
 .teams-section>small{display:block;margin-top:7px;color:#936d34;font-size:.72rem}
-@media(max-width:900px){.teams-section{position:static;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}.teams-grid{max-height:none;overflow:visible}}
 @media(max-width:700px){.teams-section header{align-items:flex-start;flex-direction:column}.teams-section header>div:last-child{width:100%}.teams-section header>div:last-child .ui-button{flex:1}.teams-grid{grid-template-columns:1fr}}
