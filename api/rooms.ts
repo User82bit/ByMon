@@ -188,7 +188,7 @@ async function createRoom(redis: ReturnType<typeof createClient>, body: CreateBo
   const now = Date.now()
   const playerId = randomUUID()
 
-  const host: OnlinePlayer = {
+  const host: StoredPlayer = {
     id: playerId,
     name: playerName,
     host: true,
@@ -269,11 +269,6 @@ async function getRoom(redis: ReturnType<typeof createClient>, roomId: string, p
   if (playerId) {
     const player = room.players.find((entry) => entry.id === playerId)
     if (player) player.lastSeen = Date.now()
-  }
-
-  if (body.action === 'ready' && player.ready && room.players.length >= 2) {
-    const allReady = room.players.every((entry) => entry.ready && entry.teamPokemonIds.length > 0)
-    if (allReady) room.status = 'battle'
   }
 
   await redis.set(roomKey(room.id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })

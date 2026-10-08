@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '../../components/ui/Button'
-import { createOnlineRoom, joinOnlineRoom, listOnlineRooms } from '../../services/onlineRooms'
+import { createOnlineRoom, joinOnlineRoom, listOnlineRooms, ONLINE_LAN_MODE } from '../../services/onlineRooms'
 import type { RoomListItem, RoomSession } from '../../types/online'
 import './OnlineServers.css'
 
@@ -26,6 +26,7 @@ export function OnlineServers({
   const [joinCode, setJoinCode] = useState('')
   const [creating, setCreating] = useState(false)
   const [joining, setJoining] = useState(false)
+  const [mode, setMode] = useState<OnlineMode>('local')
   const [form, setForm] = useState({
     name: 'Minha sala',
     maxPlayers: 4,
@@ -36,7 +37,12 @@ export function OnlineServers({
   const load = useCallback(async () => {
     try {
       setError(null)
-      setRooms(await listOnlineRooms())
+      const [nextMode, nextRooms] = await Promise.all([
+        getOnlineMode(),
+        listOnlineRooms(),
+      ])
+      setMode(nextMode)
+      setRooms(nextRooms)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Não foi possível carregar as salas.')
     } finally {
@@ -111,10 +117,24 @@ export function OnlineServers({
         <div>
           <b>BYMON ONLINE</b>
           <h1>Salas de batalha</h1>
-          <p>Crie uma sala ou entre em uma partida existente.</p>
+          <p>
+            {ONLINE_LAN_MODE
+              ? 'Modo LAN ativo: as salas ficam disponíveis para os dispositivos conectados à mesma rede.'
+              : 'Crie uma sala ou entre em uma partida existente.'}
+          </p>
         </div>
         <Button variant="secondary" onClick={onBack}>Voltar</Button>
       </header>
+
+      {ONLINE_LAN_MODE && (
+        <section className="online-lan-notice">
+          <strong>Servidor LAN local</strong>
+          <p>
+            Esta máquina está servindo as salas pela própria rede. Nos outros dispositivos,
+            abra o ByMon usando o endereço IP desta máquina na rede local.
+          </p>
+        </section>
+      )}
 
       <section className="online-page__bar">
         <label>
@@ -150,7 +170,10 @@ export function OnlineServers({
             {rooms.map((room) => (
               <article className="online-room" key={room.id}>
                 <div>
-                  <span className="online-room__name">{room.name}</span>
+                  <div className="online-room__title">
+                    <span className="online-room__name">{room.name}</span>
+                    {room.source === 'lan' && <span className="online-room__tag">LAN</span>}
+                  </div>
                   <p>
                     Host: {room.players.find((player) => player.host)?.name ?? 'Host'} ·{' '}
                     {room.players.length}/{room.maxPlayers} jogadores
