@@ -9,6 +9,10 @@ interface NamedResource {
   url: string
 }
 
+interface PokemonListResponse {
+  results: NamedResource[]
+}
+
 interface TypeResponse {
   pokemon: Array<{ pokemon: NamedResource }>
 }
@@ -26,6 +30,7 @@ interface PokemonResponse {
 }
 
 let catalogPromise: Promise<PokemonSummary[]> | null = null
+const typeCache = new Map<PokemonTypeName, Promise<Set<string>>>()
 const battleCache = new Map<number, Promise<PokemonBattleData>>()
 
 function parseId(url: string): number {
@@ -38,7 +43,7 @@ function artworkUrl(id: number): string {
 }
 
 function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, ms))
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 async function fetchJson<T>(url: string, description: string, attempts = 3): Promise<T> {
@@ -55,59 +60,36 @@ async function fetchJson<T>(url: string, description: string, attempts = 3): Pro
       return (await response.json()) as T
     } catch (error) {
       lastError = error
-
       if (attempt < attempts) {
         await wait(250 * attempt)
       }
     }
   }
 
-  const message = lastError instanceof Error ? lastError.message : 'Falha de rede.'
-  throw new Error(description + ': ' + message)
-}
-
-async function getTypeMembers(type: PokemonTypeName): Promise<Array<{ id: number; name: string }>> {
-  const data = await fetchJson<TypeResponse>(
-    API_BASE + '/type/' + type,
-    'Falha ao carregar o tipo ' + type,
+  throw new Error(
+    description + ': ' + (lastError instanceof Error ? lastError.message : 'Falha de rede.'),
   )
-
-  return data.pokemon
-    .map(({ pokemon }) => ({
-      id: parseId(pokemon.url),
-      name: pokemon.name,
-    }))
-    .filter((pokemon) => pokemon.id > 0)
 }
 
 async function loadCatalog(): Promise<PokemonSummary[]> {
-  const byName = new Map<string, PokemonSummary>()
+  const data = await fetchJson<PokemonListResponse>(
+    API_BASE + '/pokemon?limit=2000&offset=0',
+    'Falha ao carregar a lista de Pokémon',
+  )
 
-  // As requisições são feitas de forma controlada em vez de disparadas
-  // simultaneamente. Isso evita que uma falha transitória derrube toda a Pokédex.
-  for (const type of POKEMON_TYPES) {
-    const pokemonOfType = await getTypeMembers(type)
+  return data.results
+    .map((pokemon) => {
+      const id = parseId(pokemon.url)
 
-    for (const entry of pokemonOfType) {
-      const existing = byName.get(entry.name)
-
-      if (existing) {
-        if (!existing.types.includes(type)) {
-          existing.types.push(type)
-        }
-        continue
+      return {
+        id,
+        name: pokemon.name,
+        types: [],
+        imageUrl: artworkUrl(id),
       }
-
-      byName.set(entry.name, {
-        id: entry.id,
-        name: entry.name,
-        types: [type],
-        imageUrl: artworkUrl(entry.id),
-      })
-    }
-  }
-
-  return Array.from(byName.values()).sort((a, b) => a.id - b.id)
+    })
+    .filter((pokemon) => pokemon.id > 0)
+    .sort((a, b) => a.id - b.id)
 }
 
 export async function getPokemonCatalog(): Promise<PokemonSummary[]> {
@@ -119,6 +101,54 @@ export async function getPokemonCatalog(): Promise<PokemonSummary[]> {
   }
 
   return catalogPromise
+}
+
+export async function getPokemonOfType(type: PokemonTypeName): Promise<Set<string>> {
+  const cached = typeCache.get(type)
+
+  if (cached) {
+    return cached
+  }
+
+  const request = fetchJson<TypeResponse>(
+    API_BASE + '/type/' + type,
+    'Falha ao carregar o tipo ' + type,
+  )
+    .then((data) => new Set(data.pokemon.map((entry) => entry.pokemon.name)))
+    .catch((error) => {
+      typeCache.delete(type)
+      throw error
+    })
+
+  typeCache.set(type, request)
+  return request
+}
+
+export async function enrichPokemonTypes(
+  catalog: PokemonSummary[],
+  onProgress?: (catalog: PokemonSummary[]) => void,
+): Promise<PokemonSummary[]> {
+  const byName = new Map(catalog.map((pokemon) => [pokemon.name, { ...pokemon, types: [] }]))
+
+  for (const type of POKEMON_TYPES) {
+    try {
+      const names = await getPokemonOfType(type)
+
+      for (const name of names) {
+        const pokemon = byName.get(name)
+
+        if (pokemon && !pokemon.types.includes(type)) {
+          pokemon.types.push(type)
+        }
+      }
+
+      onProgress?.(Array.from(byName.values()).sort((a, b) => a.id - b.id))
+    } catch {
+      // A falha em um tipo não impede os demais tipos de serem carregados.
+    }
+  }
+
+  return Array.from(byName.values()).sort((a, b) => a.id - b.id)
 }
 
 export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<PokemonBattleData> {
