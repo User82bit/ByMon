@@ -25,15 +25,17 @@ interface JoinBody {
 }
 
 interface PlayerBody {
-  action: 'heartbeat' | 'leave' | 'ready'
+  action: 'heartbeat' | 'leave' | 'ready' | 'team'
   roomId: string
   playerId: string
   ready?: boolean
+  teamPokemonIds?: number[]
 }
 
 type Body = CreateBody | JoinBody | PlayerBody
 
-type StoredRoom = OnlineRoom & { passwordHash?: string }
+type StoredPlayer = OnlinePlayer & { teamPokemonIds: number[] }
+type StoredRoom = Omit<OnlineRoom, 'players'> & { players: StoredPlayer[]; passwordHash?: string }
 
 declare global {
   // eslint-disable-next-line no-var
@@ -94,7 +96,7 @@ function isActive(player: OnlinePlayer, now: number): boolean {
   return now - player.lastSeen <= PLAYER_STALE_MS
 }
 
-function prunePlayers(room: OnlineRoom, now: number): OnlineRoom {
+function prunePlayers(room: StoredRoom, now: number): StoredRoom {
   const players = room.players.filter((player) => isActive(player, now))
 
   if (!players.some((player) => player.id === room.hostId) && players.length > 0) {
@@ -115,7 +117,13 @@ function publicRoom(room: StoredRoom): Record<string, unknown> {
     maxPlayers: room.maxPlayers,
     private: room.private,
     status: room.status,
-    players: room.players.map(({ id, name, host, ready }) => ({ id, name, host, ready })),
+    players: room.players.map(({ id, name, host, ready, teamSize }) => ({
+      id,
+      name,
+      host,
+      ready,
+      teamSize,
+    })),
     createdAt: room.createdAt,
     passwordRequired: room.private,
   }
@@ -142,7 +150,7 @@ async function listRooms(redis: ReturnType<typeof createClient>): Promise<Respon
       continue
     }
 
-    const room = prunePlayers(JSON.parse(raw) as OnlineRoom, now)
+    const room = prunePlayers(JSON.parse(raw) as StoredRoom, now)
 
     if (room.status !== 'waiting') continue
 
@@ -185,6 +193,8 @@ async function createRoom(redis: ReturnType<typeof createClient>, body: CreateBo
     name: playerName,
     host: true,
     ready: false,
+    teamSize: 0,
+    teamPokemonIds: [],
     lastSeen: now,
   }
 
@@ -240,6 +250,8 @@ async function joinRoom(redis: ReturnType<typeof createClient>, body: JoinBody):
     name: playerName,
     host: false,
     ready: false,
+    teamSize: 0,
+    teamPokemonIds: [],
     lastSeen: Date.now(),
   })
 
@@ -259,6 +271,11 @@ async function getRoom(redis: ReturnType<typeof createClient>, roomId: string, p
     if (player) player.lastSeen = Date.now()
   }
 
+  if (body.action === 'ready' && player.ready && room.players.length >= 2) {
+    const allReady = room.players.every((entry) => entry.ready && entry.teamPokemonIds.length > 0)
+    if (allReady) room.status = 'battle'
+  }
+
   await redis.set(roomKey(room.id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
 
   return json({ room: publicRoom(room) })
@@ -268,12 +285,29 @@ async function updatePlayer(redis: ReturnType<typeof createClient>, body: Player
   const raw = await redis.get(roomKey(body.roomId))
   if (!raw) return json({ error: 'Sala não encontrada.' }, 404)
 
-  const room = prunePlayers(JSON.parse(raw) as OnlineRoom, Date.now())
+  const room = prunePlayers(JSON.parse(raw) as StoredRoom, Date.now())
   const player = room.players.find((entry) => entry.id === body.playerId)
 
   if (!player) return json({ error: 'Jogador não está na sala.' }, 403)
 
+  if (body.action === 'team') {
+    const ids = Array.isArray(body.teamPokemonIds)
+      ? body.teamPokemonIds.filter((id) => Number.isInteger(id) && id > 0).slice(0, 6)
+      : []
+    const uniqueIds = Array.from(new Set(ids))
+
+    if (uniqueIds.length > 6) return json({ error: 'O time pode ter no máximo 6 Pokémon.' }, 400)
+
+    player.teamPokemonIds = uniqueIds
+    player.teamSize = uniqueIds.length
+    player.ready = false
+  }
+
   if (body.action === 'ready') {
+    if (body.ready && player.teamPokemonIds.length === 0) {
+      return json({ error: 'Monte seu time antes de ficar pronto.' }, 400)
+    }
+
     player.ready = Boolean(body.ready)
   }
 
@@ -322,7 +356,7 @@ export default async function handler(request: Request): Promise<Response> {
 
       if (body.action === 'create') return createRoom(redis, body)
       if (body.action === 'join') return joinRoom(redis, body)
-      if (body.action === 'heartbeat' || body.action === 'leave' || body.action === 'ready') {
+      if (body.action === 'heartbeat' || body.action === 'leave' || body.action === 'ready' || body.action === 'team') {
         return updatePlayer(redis, body)
       }
     }

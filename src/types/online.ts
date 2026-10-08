@@ -5,6 +5,7 @@ export interface OnlinePlayer {
   name: string
   host: boolean
   ready: boolean
+  teamSize: number
   lastSeen: number
 }
 

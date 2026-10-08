@@ -169,7 +169,14 @@ export default function App() {
         />
       ) : (
         roomSession ? (
-          <OnlineLobby session={roomSession} onLeave={leaveOnline} />
+          <OnlineLobby
+            session={roomSession}
+            catalog={catalog}
+            loading={loading}
+            error={error}
+            onRetryCatalog={loadCatalog}
+            onLeave={leaveOnline}
+          />
         ) : null
       )}
     </MainLayout>
