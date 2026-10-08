@@ -15,7 +15,7 @@ npm install
 npm run dev:lan
 ```
 
-O comando inicia o Vite escutando em todas as interfaces de rede. O Vite documenta `--host 0.0.0.0` justamente para disponibilizar o servidor na LAN. citeturn260833search0
+O comando inicia o Vite escutando em todas as interfaces de rede. O Vite permite usar `--host 0.0.0.0` para disponibilizar o servidor na LAN.
 
 Depois, descubra o IPv4 da máquina na rede, por exemplo `192.168.1.20`, e abra:
 
