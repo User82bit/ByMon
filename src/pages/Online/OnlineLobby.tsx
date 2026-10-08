@@ -1,15 +1,23 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Team } from '../../components/team/Team'
 import { PokemonBrowser } from '../../components/browser/PokemonBrowser'
 import {
   getOnlineRoom,
   leaveOnlineRoom,
-  setOnlinePlayerReady,
-  setOnlinePlayerTeam,
+  setOnlineRoomStatus,
 } from '../../services/onlineRooms'
+import {
+  OnlineP2PHost,
+  OnlineP2PPeer,
+} from '../../services/onlineP2P'
 import type { PokemonSummary, Team as TeamModel } from '../../types/pokemon'
-import type { OnlineRoom, RoomSession } from '../../types/online'
+import type {
+  OnlineRoom,
+  P2PPlayerState,
+  P2PSnapshot,
+  RoomSession,
+} from '../../types/online'
 import './OnlineLobby.css'
 
 interface Props {
@@ -25,6 +33,39 @@ function teamStorageKey(session: RoomSession): string {
   return 'bymon-online-team:' + session.room.id + ':' + session.playerId
 }
 
+function initialSnapshot(room: OnlineRoom): P2PSnapshot {
+  return {
+    status: room.status,
+    players: room.players.map((player) => ({
+      id: player.id,
+      name: player.name,
+      host: player.host,
+      ready: false,
+      teamPokemonIds: [],
+    })),
+  }
+}
+
+function mergePlayers(
+  room: OnlineRoom,
+  snapshotPlayers: P2PPlayerState[],
+): P2PPlayerState[] {
+  const stateById = new Map(snapshotPlayers.map((player) => [player.id, player]))
+
+  return room.players.map((player) => {
+    const current = stateById.get(player.id)
+    return (
+      current ?? {
+        id: player.id,
+        name: player.name,
+        host: player.host,
+        ready: false,
+        teamPokemonIds: [],
+      }
+    )
+  })
+}
+
 export function OnlineLobby({
   session,
   catalog,
@@ -34,6 +75,7 @@ export function OnlineLobby({
   onLeave,
 }: Props) {
   const [room, setRoom] = useState<OnlineRoom>(session.room)
+  const [snapshot, setSnapshot] = useState<P2PSnapshot>(() => initialSnapshot(session.room))
   const [team, setTeam] = useState<TeamModel>({
     id: 'online-team',
     name: 'Meu time',
@@ -41,7 +83,11 @@ export function OnlineLobby({
   })
   const [error, setError] = useState<string | null>(catalogError)
   const [leaving, setLeaving] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [p2pConnected, setP2pConnected] = useState(session.room.players.length < 2)
+
+  const p2pRef = useRef<OnlineP2PHost | OnlineP2PPeer | null>(null)
+
+  const isHost = session.playerId === session.room.hostId
 
   const catalogById = useMemo(
     () => new Map(catalog.map((pokemon) => [pokemon.id, pokemon])),
@@ -71,26 +117,102 @@ export function OnlineLobby({
   useEffect(() => {
     let active = true
 
+    const callbacks = {
+      onSnapshot(next: P2PSnapshot) {
+        if (!active) return
+        setSnapshot(next)
+        setP2pConnected(true)
+        setError(null)
+      },
+      onConnectionChange(connected: boolean) {
+        if (!active) return
+        setP2pConnected(connected)
+      },
+      onError(nextError: Error) {
+        if (!active) return
+        setError(nextError.message)
+      },
+      onBattleStart(next: P2PSnapshot) {
+        if (!active) return
+        setSnapshot(next)
+      },
+    }
+
+    const transport = isHost
+      ? new OnlineP2PHost(session, {
+          ...callbacks,
+          onBattleStart: async (next) => {
+            callbacks.onBattleStart(next)
+
+            try {
+              const nextRoom = await setOnlineRoomStatus(
+                session.room.id,
+                session.playerId,
+                session.sessionToken,
+                'battle',
+              )
+
+              if (active) setRoom(nextRoom)
+            } catch (e) {
+              if (active) {
+                setError(
+                  e instanceof Error
+                    ? e.message
+                    : 'Não foi possível registrar o início da partida.',
+                )
+              }
+            }
+          },
+        })
+      : new OnlineP2PPeer(session, callbacks)
+
+    p2pRef.current = transport
+    transport.start()
+
+    return () => {
+      active = false
+      transport.close()
+      p2pRef.current = null
+    }
+  }, [isHost, session])
+
+  useEffect(() => {
+    let active = true
+
     async function refresh() {
       try {
-        const next = await getOnlineRoom(session.room.id, session.playerId)
-        if (active) {
-          setRoom(next)
-          setError(null)
+        const next = await getOnlineRoom(
+          session.room.id,
+          session.playerId,
+          session.sessionToken,
+        )
+
+        if (!active) return
+
+        setRoom(next)
+
+        if (isHost && p2pRef.current instanceof OnlineP2PHost) {
+          p2pRef.current.syncRoom(next)
+        }
+
+        if (next.hostId !== session.room.hostId && !isHost) {
+          setError('O host desta sala mudou. Esta sala requer uma nova conexão.')
         }
       } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Sala indisponível.')
+        if (active) {
+          setError(e instanceof Error ? e.message : 'Sala indisponível.')
+        }
       }
     }
 
     void refresh()
-    const timer = window.setInterval(() => void refresh(), 3000)
+    const timer = window.setInterval(() => void refresh(), 2500)
 
     return () => {
       active = false
       window.clearInterval(timer)
     }
-  }, [session.playerId, session.room.id])
+  }, [isHost, session])
 
   function persistLocalTeam(pokemon: PokemonSummary[]) {
     window.localStorage.setItem(
@@ -99,21 +221,19 @@ export function OnlineLobby({
     )
   }
 
-  async function syncTeam(pokemon: PokemonSummary[]) {
+  function syncTeam(pokemon: PokemonSummary[]) {
     persistLocalTeam(pokemon)
-    setSaving(true)
 
-    try {
-      const next = await setOnlinePlayerTeam(
-        room.id,
-        session.playerId,
-        pokemon.map((entry) => entry.id),
-      )
-      setRoom(next)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Não foi possível salvar o time.')
-    } finally {
-      setSaving(false)
+    const transport = p2pRef.current
+    if (!transport) return
+
+    if (isHost && transport instanceof OnlineP2PHost) {
+      transport.updateLocalTeam(pokemon.map((entry) => entry.id))
+      return
+    }
+
+    if (!isHost && transport instanceof OnlineP2PPeer) {
+      transport.sendTeam(pokemon.map((entry) => entry.id))
     }
   }
 
@@ -122,39 +242,56 @@ export function OnlineLobby({
 
     const next = team.pokemon.concat(pokemon)
     setTeam((current) => ({ ...current, pokemon: next }))
-    void syncTeam(next)
+    syncTeam(next)
   }
 
   function removePokemon(pokemonId: number) {
     const next = team.pokemon.filter((pokemon) => pokemon.id !== pokemonId)
     setTeam((current) => ({ ...current, pokemon: next }))
-    void syncTeam(next)
+    syncTeam(next)
   }
 
   function renameTeam(_: string, name: string) {
     setTeam((current) => ({ ...current, name: name || 'Meu time' }))
   }
 
-  async function toggleReady() {
-    const player = room.players.find((entry) => entry.id === session.playerId)
-    if (!player) return
+  function toggleReady() {
+    const me = snapshot.players.find((entry) => entry.id === session.playerId)
+    if (!me) return
 
-    try {
-      const next = await setOnlinePlayerReady(
-        room.id,
-        session.playerId,
-        !player.ready,
-      )
-      setRoom(next)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Não foi possível atualizar seu status.')
+    if (!me.ready && team.pokemon.length === 0) {
+      setError('Monte seu time antes de ficar pronto.')
+      return
+    }
+
+    if (!isHost && !p2pConnected) {
+      setError('Aguardando conexão direta com o host.')
+      return
+    }
+
+    const nextReady = !me.ready
+    const transport = p2pRef.current
+
+    if (isHost && transport instanceof OnlineP2PHost) {
+      transport.updateLocalReady(nextReady)
+      return
+    }
+
+    if (!isHost && transport instanceof OnlineP2PPeer) {
+      transport.sendReady(nextReady)
     }
   }
 
   async function leave() {
     setLeaving(true)
+
     try {
-      await leaveOnlineRoom(room.id, session.playerId)
+      p2pRef.current?.close()
+      await leaveOnlineRoom(
+        room.id,
+        session.playerId,
+        session.sessionToken,
+      )
       window.localStorage.removeItem(teamStorageKey(session))
     } finally {
       setLeaving(false)
@@ -162,12 +299,12 @@ export function OnlineLobby({
     }
   }
 
-  const me = room.players.find((entry) => entry.id === session.playerId)
+  const players = mergePlayers(room, snapshot.players)
+  const me = players.find((player) => player.id === session.playerId)
   const everyoneReady =
-    room.players.length >= 2 &&
-    room.players.every((player) => player.ready && player.teamSize > 0)
-  const canReady = team.pokemon.length > 0 && !saving
-  const battleStarted = room.status === 'battle'
+    players.length >= 2 &&
+    players.every((player) => player.ready && player.teamPokemonIds.length > 0)
+  const battleStarted = snapshot.status === 'battle' || room.status === 'battle'
 
   return (
     <main className="online-lobby">
@@ -175,8 +312,18 @@ export function OnlineLobby({
         <div>
           <b>{battleStarted ? 'PARTIDA ONLINE' : 'LOBBY ONLINE'}</b>
           <h1>{room.name}</h1>
-          <p>Código da sala: <strong>{room.code}</strong></p>
+          <p>
+            Código da sala: <strong>{room.code}</strong>
+          </p>
+          <small>
+            {isHost
+              ? 'Seu navegador é o servidor temporário desta sala.'
+              : p2pConnected
+                ? 'Conexão direta com o host estabelecida.'
+                : 'Conectando diretamente ao host...'}
+          </small>
         </div>
+
         <Button variant="secondary" onClick={() => void leave()} disabled={leaving}>
           {leaving ? 'Saindo...' : 'Sair'}
         </Button>
@@ -187,8 +334,10 @@ export function OnlineLobby({
       {battleStarted ? (
         <section className="online-lobby__started">
           <strong>Todos os jogadores ficaram prontos.</strong>
-          <p>A sala recebeu o sinal de início da partida.</p>
-          <small>A sincronização da batalha online será conectada a esta etapa na próxima camada.</small>
+          <p>O host iniciou a partida pela conexão P2P.</p>
+          <small>
+            O próximo passo é conectar este estado ao campo de batalha online.
+          </small>
         </section>
       ) : (
         <>
@@ -219,8 +368,11 @@ export function OnlineLobby({
                     ? 'Escolha pelo menos 1 Pokémon antes de ficar pronto.'
                     : 'Seu time está pronto para a batalha.'}
               </p>
-              <Button disabled={!canReady} onClick={() => void toggleReady()}>
-                {me?.ready ? 'Cancelar pronto' : saving ? 'Salvando...' : 'Estou pronto'}
+              <Button
+                disabled={!isHost && !p2pConnected}
+                onClick={toggleReady}
+              >
+                {me?.ready ? 'Cancelar pronto' : 'Estou pronto'}
               </Button>
             </div>
           </section>
@@ -237,30 +389,41 @@ export function OnlineLobby({
             <div className="online-lobby__section-header">
               <div>
                 <h2>Jogadores</h2>
-                <small>{room.players.length}/{room.maxPlayers}</small>
+                <small>{players.length}/{room.maxPlayers}</small>
               </div>
               <span>{room.private ? 'Privada' : 'Pública'}</span>
             </div>
 
-            {room.players.map((player) => (
+            {players.map((player) => (
               <div className="online-player" key={player.id}>
                 <div>
                   <strong>{player.name}</strong>
                   <small>
-                    {player.host ? 'Host' : player.ready ? 'Pronto' : 'Montando time'}
-                    {player.teamSize > 0 ? ' · ' + player.teamSize + '/6' : ''}
+                    {player.host
+                      ? player.ready
+                        ? 'Host · Pronto'
+                        : 'Host · Montando time'
+                      : player.ready
+                        ? 'Pronto'
+                        : 'Montando time'}
+                    {player.teamPokemonIds.length > 0
+                      ? ' · ' + player.teamPokemonIds.length + '/6'
+                      : ''}
                   </small>
                 </div>
+
                 {player.host && <span>Host</span>}
               </div>
             ))}
 
             <div className="online-lobby__status">
-              {room.players.length < 2
+              {players.length < 2
                 ? 'Aguardando outro jogador.'
-                : everyoneReady
-                  ? 'Todos estão prontos. Iniciando a partida...'
-                  : 'Cada jogador monta seu próprio time e marca-se como pronto.'}
+                : !p2pConnected && !isHost
+                  ? 'Aguardando a conexão direta com o host.'
+                  : everyoneReady
+                    ? 'Todos estão prontos. O host está iniciando a partida...'
+                    : 'Cada jogador monta seu próprio time e marca-se como pronto.'}
             </div>
           </section>
         </>

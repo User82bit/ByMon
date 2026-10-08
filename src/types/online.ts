@@ -28,4 +28,18 @@ export interface RoomListItem extends OnlineRoom {
 export interface RoomSession {
   room: OnlineRoom
   playerId: string
+  sessionToken: string
+}
+
+export interface P2PPlayerState {
+  id: string
+  name: string
+  host: boolean
+  ready: boolean
+  teamPokemonIds: number[]
+}
+
+export interface P2PSnapshot {
+  status: OnlineRoomStatus
+  players: P2PPlayerState[]
 }

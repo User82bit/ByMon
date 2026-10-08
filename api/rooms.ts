@@ -1,11 +1,15 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { createClient } from 'redis'
-import type { OnlinePlayer, OnlineRoom } from '../src/types/online'
+import type { OnlinePlayer, OnlineRoom, OnlineRoomStatus } from '../src/types/online'
 
 const ROOM_TTL_SECONDS = 60 * 60 * 6
 const PLAYER_STALE_MS = 30_000
+const SIGNAL_TTL_SECONDS = 60
+const MAX_SIGNAL_BYTES = 64 * 1024
 const ROOM_PREFIX = 'bymon:room:'
+const ROOM_CODE_PREFIX = 'bymon:room-code:'
 const PUBLIC_ROOMS_KEY = 'bymon:rooms:public'
+const SIGNAL_PREFIX = 'bymon:signal:'
 
 interface CreateBody {
   action: 'create'
@@ -25,17 +29,41 @@ interface JoinBody {
 }
 
 interface PlayerBody {
-  action: 'heartbeat' | 'leave' | 'ready' | 'team'
+  action: 'heartbeat' | 'leave' | 'status'
   roomId: string
   playerId: string
-  ready?: boolean
-  teamPokemonIds?: number[]
+  sessionToken: string
+  status?: OnlineRoomStatus
 }
 
-type Body = CreateBody | JoinBody | PlayerBody
+interface SignalSendBody {
+  action: 'signal-send'
+  roomId: string
+  playerId: string
+  sessionToken: string
+  targetPlayerId: string
+  signalType: 'offer' | 'answer' | 'ice-candidate'
+  data: unknown
+}
 
-type StoredPlayer = OnlinePlayer & { teamPokemonIds: number[] }
-type StoredRoom = Omit<OnlineRoom, 'players'> & { players: StoredPlayer[]; passwordHash?: string }
+interface SignalPullBody {
+  action: 'signal-pull'
+  roomId: string
+  playerId: string
+  sessionToken: string
+}
+
+type Body = CreateBody | JoinBody | PlayerBody | SignalSendBody | SignalPullBody
+
+type StoredPlayer = OnlinePlayer & {
+  sessionToken: string
+  lastSeen: number
+}
+
+type StoredRoom = Omit<OnlineRoom, 'players'> & {
+  players: StoredPlayer[]
+  passwordHash?: string
+}
 
 declare global {
   // eslint-disable-next-line no-var
@@ -62,6 +90,14 @@ function getRedis(): Promise<ReturnType<typeof createClient>> {
 
 function roomKey(id: string): string {
   return ROOM_PREFIX + id
+}
+
+function codeKey(code: string): string {
+  return ROOM_CODE_PREFIX + code
+}
+
+function signalKey(roomId: string, playerId: string): string {
+  return SIGNAL_PREFIX + roomId + ':' + playerId
 }
 
 function hashPassword(password: string): string {
@@ -92,23 +128,20 @@ function json(data: unknown, status = 200): Response {
   })
 }
 
-function isActive(player: OnlinePlayer, now: number): boolean {
+function isActive(player: StoredPlayer, now: number): boolean {
   return now - player.lastSeen <= PLAYER_STALE_MS
 }
 
-function prunePlayers(room: StoredRoom, now: number): StoredRoom {
-  const players = room.players.filter((player) => isActive(player, now))
-
-  if (!players.some((player) => player.id === room.hostId) && players.length > 0) {
-    players[0].host = true
-    room.hostId = players[0].id
-  }
-
-  room.players = players
+function pruneRoom(room: StoredRoom, now: number): StoredRoom {
+  room.players = room.players.filter((player) => isActive(player, now))
   return room
 }
 
-function publicRoom(room: StoredRoom): Record<string, unknown> {
+function hostIsActive(room: StoredRoom): boolean {
+  return room.players.some((player) => player.id === room.hostId && player.host)
+}
+
+function publicRoom(room: StoredRoom): OnlineRoom {
   return {
     id: room.id,
     name: room.name,
@@ -117,29 +150,45 @@ function publicRoom(room: StoredRoom): Record<string, unknown> {
     maxPlayers: room.maxPlayers,
     private: room.private,
     status: room.status,
-    players: room.players.map(({ id, name, host, ready, teamSize }) => ({
+    players: room.players.map(({ id, name, host, lastSeen }) => ({
       id,
       name,
       host,
-      ready,
-      teamSize,
+      ready: false,
+      teamSize: 0,
+      lastSeen,
     })),
     createdAt: room.createdAt,
-    passwordRequired: room.private,
   }
 }
 
-async function findRoomId(redis: ReturnType<typeof createClient>, body: JoinBody): Promise<string | null> {
+async function deleteRoom(
+  redis: ReturnType<typeof createClient>,
+  room: StoredRoom,
+): Promise<void> {
+  await redis.multi()
+    .del(roomKey(room.id))
+    .del(codeKey(room.code))
+    .sRem(PUBLIC_ROOMS_KEY, room.id)
+    .exec()
+
+  await Promise.all(
+    room.players.map((player) => redis.del(signalKey(room.id, player.id))),
+  )
+}
+
+async function findRoomId(
+  redis: ReturnType<typeof createClient>,
+  body: JoinBody,
+): Promise<string | null> {
   if (body.roomId) return body.roomId
-
   if (!body.code) return null
-
-  return redis.get('bymon:room-code:' + body.code.trim().toUpperCase())
+  return redis.get(codeKey(body.code.trim().toUpperCase()))
 }
 
 async function listRooms(redis: ReturnType<typeof createClient>): Promise<Response> {
   const ids = await redis.sMembers(PUBLIC_ROOMS_KEY)
-  const rooms: Record<string, unknown>[] = []
+  const rooms: RoomListItem[] = []
   const now = Date.now()
 
   for (const id of ids) {
@@ -150,19 +199,31 @@ async function listRooms(redis: ReturnType<typeof createClient>): Promise<Respon
       continue
     }
 
-    const room = prunePlayers(JSON.parse(raw) as StoredRoom, now)
+    const room = pruneRoom(JSON.parse(raw) as StoredRoom, now)
 
-    if (room.status !== 'waiting') continue
+    if (!hostIsActive(room)) {
+      await deleteRoom(redis, room)
+      continue
+    }
 
     await redis.set(roomKey(room.id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
-    rooms.push(publicRoom(room))
+
+    if (room.status === 'waiting') {
+      rooms.push({
+        ...publicRoom(room),
+        passwordRequired: room.private,
+      })
+    }
   }
 
-  rooms.sort((a, b) => Number(b.createdAt) - Number(a.createdAt))
+  rooms.sort((a, b) => b.createdAt - a.createdAt)
   return json({ rooms })
 }
 
-async function createRoom(redis: ReturnType<typeof createClient>, body: CreateBody): Promise<Response> {
+async function createRoom(
+  redis: ReturnType<typeof createClient>,
+  body: CreateBody,
+): Promise<Response> {
   const name = cleanName(body.name, 'Sala sem nome', 40)
   const playerName = cleanName(body.playerName, 'Jogador', 20)
   const maxPlayers = normalizeLimit(body.maxPlayers)
@@ -177,7 +238,7 @@ async function createRoom(redis: ReturnType<typeof createClient>, body: CreateBo
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const exists = await redis.exists(roomKey(id))
-    const codeExists = await redis.get('bymon:room-code:' + code)
+    const codeExists = await redis.get(codeKey(code))
 
     if (!exists && !codeExists) break
 
@@ -187,14 +248,13 @@ async function createRoom(redis: ReturnType<typeof createClient>, body: CreateBo
 
   const now = Date.now()
   const playerId = randomUUID()
+  const sessionToken = randomUUID()
 
   const host: StoredPlayer = {
     id: playerId,
     name: playerName,
     host: true,
-    ready: false,
-    teamSize: 0,
-    teamPokemonIds: [],
+    sessionToken,
     lastSeen: now,
   }
 
@@ -213,7 +273,7 @@ async function createRoom(redis: ReturnType<typeof createClient>, body: CreateBo
 
   await redis.multi()
     .set(roomKey(id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
-    .set('bymon:room-code:' + code, id, { EX: ROOM_TTL_SECONDS })
+    .set(codeKey(code), id, { EX: ROOM_TTL_SECONDS })
     .sAdd(PUBLIC_ROOMS_KEY, id)
     .exec()
 
@@ -221,10 +281,20 @@ async function createRoom(redis: ReturnType<typeof createClient>, body: CreateBo
     await redis.sRem(PUBLIC_ROOMS_KEY, id)
   }
 
-  return json({ room: publicRoom(room), playerId }, 201)
+  return json(
+    {
+      room: publicRoom(room),
+      playerId,
+      sessionToken,
+    },
+    201,
+  )
 }
 
-async function joinRoom(redis: ReturnType<typeof createClient>, body: JoinBody): Promise<Response> {
+async function joinRoom(
+  redis: ReturnType<typeof createClient>,
+  body: JoinBody,
+): Promise<Response> {
   const id = await findRoomId(redis, body)
 
   if (!id) return json({ error: 'Sala não encontrada.' }, 404)
@@ -232,9 +302,17 @@ async function joinRoom(redis: ReturnType<typeof createClient>, body: JoinBody):
   const raw = await redis.get(roomKey(id))
   if (!raw) return json({ error: 'Sala não encontrada.' }, 404)
 
-  const room = prunePlayers(JSON.parse(raw) as StoredRoom, Date.now())
+  const room = pruneRoom(JSON.parse(raw) as StoredRoom, Date.now())
 
-  if (room.status !== 'waiting') return json({ error: 'A batalha desta sala já começou.' }, 409)
+  if (!hostIsActive(room)) {
+    await deleteRoom(redis, room)
+    return json({ error: 'O host da sala ficou offline.' }, 410)
+  }
+
+  if (room.status !== 'waiting') {
+    return json({ error: 'A batalha desta sala já começou.' }, 409)
+  }
+
   if (room.private && hashPassword(body.password ?? '') !== room.passwordHash) {
     return json({ error: 'Senha incorreta.' }, 403)
   }
@@ -243,90 +321,200 @@ async function joinRoom(redis: ReturnType<typeof createClient>, body: JoinBody):
     return json({ error: 'A sala está cheia.' }, 409)
   }
 
-  const playerName = cleanName(body.playerName, 'Jogador', 20)
   const playerId = randomUUID()
+  const sessionToken = randomUUID()
+
   room.players.push({
     id: playerId,
-    name: playerName,
+    name: cleanName(body.playerName, 'Jogador', 20),
     host: false,
-    ready: false,
-    teamSize: 0,
-    teamPokemonIds: [],
+    sessionToken,
     lastSeen: Date.now(),
   })
 
   await redis.set(roomKey(room.id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
 
-  return json({ room: publicRoom(room), playerId })
+  return json({
+    room: publicRoom(room),
+    playerId,
+    sessionToken,
+  })
 }
 
-async function getRoom(redis: ReturnType<typeof createClient>, roomId: string, playerId?: string): Promise<Response> {
+async function getAuthenticatedRoomPlayer(
+  redis: ReturnType<typeof createClient>,
+  roomId: string,
+  playerId: string,
+  sessionToken: string,
+): Promise<{ room: StoredRoom; player: StoredPlayer } | null> {
   const raw = await redis.get(roomKey(roomId))
-  if (!raw) return json({ error: 'Sala não encontrada.' }, 404)
+  if (!raw) return null
 
-  const room = prunePlayers(JSON.parse(raw) as StoredRoom, Date.now())
-
-  if (playerId) {
-    const player = room.players.find((entry) => entry.id === playerId)
-    if (player) player.lastSeen = Date.now()
+  const room = pruneRoom(JSON.parse(raw) as StoredRoom, Date.now())
+  if (!hostIsActive(room)) {
+    await deleteRoom(redis, room)
+    return null
   }
 
-  await redis.set(roomKey(room.id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
+  const player = room.players.find(
+    (entry) => entry.id === playerId && entry.sessionToken === sessionToken,
+  )
 
-  return json({ room: publicRoom(room) })
-}
-
-async function updatePlayer(redis: ReturnType<typeof createClient>, body: PlayerBody): Promise<Response> {
-  const raw = await redis.get(roomKey(body.roomId))
-  if (!raw) return json({ error: 'Sala não encontrada.' }, 404)
-
-  const room = prunePlayers(JSON.parse(raw) as StoredRoom, Date.now())
-  const player = room.players.find((entry) => entry.id === body.playerId)
-
-  if (!player) return json({ error: 'Jogador não está na sala.' }, 403)
-
-  if (body.action === 'team') {
-    const ids = Array.isArray(body.teamPokemonIds)
-      ? body.teamPokemonIds.filter((id) => Number.isInteger(id) && id > 0).slice(0, 6)
-      : []
-    const uniqueIds = Array.from(new Set(ids))
-
-    if (uniqueIds.length > 6) return json({ error: 'O time pode ter no máximo 6 Pokémon.' }, 400)
-
-    player.teamPokemonIds = uniqueIds
-    player.teamSize = uniqueIds.length
-    player.ready = false
-  }
-
-  if (body.action === 'ready') {
-    if (body.ready && player.teamPokemonIds.length === 0) {
-      return json({ error: 'Monte seu time antes de ficar pronto.' }, 400)
-    }
-
-    player.ready = Boolean(body.ready)
-  }
+  if (!player) return null
 
   player.lastSeen = Date.now()
-
-  if (body.action === 'leave') {
-    room.players = room.players.filter((entry) => entry.id !== body.playerId)
-
-    if (body.playerId === room.hostId && room.players.length > 0) {
-      room.players[0].host = true
-      room.hostId = room.players[0].id
-    }
-
-    if (room.players.length === 0) {
-      await redis.del(roomKey(room.id))
-      await redis.sRem(PUBLIC_ROOMS_KEY, room.id)
-      await redis.del('bymon:room-code:' + room.code)
-      return json({ left: true })
-    }
-  }
-
   await redis.set(roomKey(room.id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
 
-  return json({ room: publicRoom(room) })
+  return { room, player }
+}
+
+async function getRoom(
+  redis: ReturnType<typeof createClient>,
+  roomId: string,
+  playerId: string,
+  sessionToken: string,
+): Promise<Response> {
+  const authenticated = await getAuthenticatedRoomPlayer(redis, roomId, playerId, sessionToken)
+  if (!authenticated) {
+    return json({ error: 'Sala ou sessão inválida.' }, 403)
+  }
+
+  return json({ room: publicRoom(authenticated.room) })
+}
+
+async function updatePlayer(
+  redis: ReturnType<typeof createClient>,
+  body: PlayerBody,
+): Promise<Response> {
+  const authenticated = await getAuthenticatedRoomPlayer(
+    redis,
+    body.roomId,
+    body.playerId,
+    body.sessionToken,
+  )
+
+  if (!authenticated) {
+    return json({ error: 'Sala ou sessão inválida.' }, 403)
+  }
+
+  const { room } = authenticated
+
+  if (body.action === 'status') {
+    if (body.playerId !== room.hostId) {
+      return json({ error: 'Somente o host pode alterar o status da sala.' }, 403)
+    }
+
+    if (body.status !== 'waiting' && body.status !== 'battle') {
+      return json({ error: 'Status de sala inválido.' }, 400)
+    }
+
+    room.status = body.status
+    await redis.set(roomKey(room.id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
+    return json({ room: publicRoom(room) })
+  }
+
+  if (body.action === 'heartbeat') {
+    return json({ room: publicRoom(room) })
+  }
+
+  if (body.playerId === room.hostId) {
+    await deleteRoom(redis, room)
+    return json({ left: true, roomClosed: true })
+  }
+
+  room.players = room.players.filter((entry) => entry.id !== body.playerId)
+  await redis.set(roomKey(room.id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
+  await redis.del(signalKey(room.id, body.playerId))
+
+  return json({ left: true, room: publicRoom(room) })
+}
+
+async function sendSignal(
+  redis: ReturnType<typeof createClient>,
+  body: SignalSendBody,
+): Promise<Response> {
+  const authenticated = await getAuthenticatedRoomPlayer(
+    redis,
+    body.roomId,
+    body.playerId,
+    body.sessionToken,
+  )
+
+  if (!authenticated) {
+    return json({ error: 'Sala ou sessão inválida.' }, 403)
+  }
+
+  const target = authenticated.room.players.find(
+    (player) => player.id === body.targetPlayerId,
+  )
+
+  if (!target) {
+    return json({ error: 'Jogador de destino não está na sala.' }, 404)
+  }
+
+  if (!['offer', 'answer', 'ice-candidate'].includes(body.signalType)) {
+    return json({ error: 'Sinal WebRTC inválido.' }, 400)
+  }
+
+  let serializedData: string
+
+  try {
+    serializedData = JSON.stringify(body.data)
+  } catch {
+    return json({ error: 'Sinal WebRTC inválido.' }, 400)
+  }
+
+  if (new TextEncoder().encode(serializedData).byteLength > MAX_SIGNAL_BYTES) {
+    return json({ error: 'Sinal WebRTC excede o limite permitido.' }, 413)
+  }
+
+  const message = JSON.stringify({
+    fromPlayerId: body.playerId,
+    signalType: body.signalType,
+    data: body.data,
+    createdAt: Date.now(),
+  })
+
+  const key = signalKey(body.roomId, body.targetPlayerId)
+  await redis.rPush(key, message)
+  await redis.expire(key, SIGNAL_TTL_SECONDS)
+
+  return json({ queued: true })
+}
+
+async function pullSignals(
+  redis: ReturnType<typeof createClient>,
+  body: SignalPullBody,
+): Promise<Response> {
+  const authenticated = await getAuthenticatedRoomPlayer(
+    redis,
+    body.roomId,
+    body.playerId,
+    body.sessionToken,
+  )
+
+  if (!authenticated) {
+    return json({ error: 'Sala ou sessão inválida.' }, 403)
+  }
+
+  const key = signalKey(body.roomId, body.playerId)
+  const rawSignals = await redis.lRange(key, 0, 63)
+
+  if (rawSignals.length > 0) {
+    await redis.del(key)
+  }
+
+  const signals = rawSignals
+    .map((entry) => {
+      try {
+        return JSON.parse(entry)
+      } catch {
+        return null
+      }
+    })
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+
+  return json({ signals })
 }
 
 export default async function handler(request: Request): Promise<Response> {
@@ -337,9 +525,10 @@ export default async function handler(request: Request): Promise<Response> {
       const url = new URL(request.url)
       const roomId = url.searchParams.get('roomId')
       const playerId = url.searchParams.get('playerId')
+      const sessionToken = url.searchParams.get('sessionToken')
 
-      if (roomId) {
-        return getRoom(redis, roomId, playerId ?? undefined)
+      if (roomId && playerId && sessionToken) {
+        return getRoom(redis, roomId, playerId, sessionToken)
       }
 
       return listRooms(redis)
@@ -351,14 +540,23 @@ export default async function handler(request: Request): Promise<Response> {
 
       if (body.action === 'create') return createRoom(redis, body)
       if (body.action === 'join') return joinRoom(redis, body)
-      if (body.action === 'heartbeat' || body.action === 'leave' || body.action === 'ready' || body.action === 'team') {
+
+      if (
+        body.action === 'heartbeat' ||
+        body.action === 'leave' ||
+        body.action === 'status'
+      ) {
         return updatePlayer(redis, body)
       }
+
+      if (body.action === 'signal-send') return sendSignal(redis, body)
+      if (body.action === 'signal-pull') return pullSignals(redis, body)
     }
 
     return json({ error: 'Método não suportado.' }, 405)
   } catch (error) {
     console.error(error)
+
     return json(
       {
         error:
