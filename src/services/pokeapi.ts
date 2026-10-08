@@ -21,6 +21,8 @@ interface TypeResponse {
 interface PokemonResponse {
   id: number
   name: string
+  species: NamedResource
+  moves: Array<{ move: NamedResource }>
   height: number
   weight: number
   base_experience: number
@@ -115,6 +117,7 @@ async function loadCatalog(): Promise<PokemonSummary[]> {
         name: entry.name,
         types: [],
         imageUrl: artworkUrl(id),
+        kind: entry.name.endsWith('-gmax') ? 'gmax' : 'normal',
       }
     })
     .filter((pokemon) => pokemon.id > 0)
@@ -182,10 +185,14 @@ export async function enrichPokemonTypes(catalog: PokemonSummary[]): Promise<Pok
     }
   }
 
-  return Array.from(byId.values()).sort((a, b) => a.id - b.id)
+  const enriched = Array.from(byId.values()).sort(sortCatalog)
+  const baseSpecies = enriched.filter((pokemon) => pokemon.id < 10000 && pokemon.kind === 'normal')
+  const dynamax = baseSpecies.map((pokemon) => ({ ...pokemon, id: 200000 + pokemon.id, baseId: pokemon.id, name: pokemon.name + '-dynamax', kind: 'dynamax' as const }))
+  return enriched.concat(dynamax)
 }
 
 export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<PokemonBattleData> {
+  const requestId = pokemon.kind === 'dynamax' ? (pokemon.baseId ?? pokemon.id - 200000) : pokemon.id
   const cached = battleCache.get(pokemon.id)
 
   if (cached) {
@@ -193,7 +200,7 @@ export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<Pok
   }
 
   const request = fetchJson<PokemonResponse>(
-    API_BASE + encodeURIComponent('/pokemon/' + pokemon.id),
+    API_BASE + encodeURIComponent('/pokemon/' + requestId),
     'Falha ao carregar os dados de ' + pokemon.name,
   )
     .then((data) => {
@@ -201,13 +208,17 @@ export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<Pok
         data.stats.find((stat) => stat.stat.name === name)?.base_stat ?? 1
 
       return {
-        id: data.id,
-        name: data.name,
+        id: pokemon.id,
+        name: pokemon.name,
+        kind: pokemon.kind,
+        baseId: pokemon.baseId,
+        speciesId: parseId(data.species.url),
+        moves: data.moves.map((entry) => entry.move.name),
         types: data.types
           .sort((a, b) => a.slot - b.slot)
           .map((entry) => entry.type.name as PokemonTypeName),
         imageUrl:
-          data.sprites.other?.['official-artwork']?.front_default ?? artworkUrl(data.id),
+          data.sprites.other?.['official-artwork']?.front_default ?? artworkUrl(requestId),
         stats: {
           hp: findStat('hp'),
           attack: findStat('attack'),
