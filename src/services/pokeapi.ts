@@ -9,8 +9,13 @@ interface NamedResource {
   url: string
 }
 
-interface PokemonListResponse {
-  results: NamedResource[]
+interface PokedexEntry {
+  entry_number: number
+  pokemon_species: NamedResource
+}
+
+interface NationalPokedexResponse {
+  pokemon_entries: PokedexEntry[]
 }
 
 interface TypeResponse {
@@ -30,7 +35,7 @@ interface PokemonResponse {
 }
 
 let catalogPromise: Promise<PokemonSummary[]> | null = null
-const typeCache = new Map<PokemonTypeName, Promise<Set<string>>>()
+const typeCache = new Map<PokemonTypeName, Promise<Set<number>>>()
 const battleCache = new Map<number, Promise<PokemonBattleData>>()
 
 function parseId(url: string): number {
@@ -72,18 +77,18 @@ async function fetchJson<T>(url: string, description: string, attempts = 3): Pro
 }
 
 async function loadCatalog(): Promise<PokemonSummary[]> {
-  const data = await fetchJson<PokemonListResponse>(
-    API_BASE + encodeURIComponent('/pokemon?limit=2000&offset=0'),
-    'Falha ao carregar a lista de Pokémon',
+  const data = await fetchJson<NationalPokedexResponse>(
+    API_BASE + encodeURIComponent('/pokedex/national'),
+    'Falha ao carregar a National Pokédex',
   )
 
-  return data.results
-    .map((pokemon) => {
-      const id = parseId(pokemon.url)
+  return data.pokemon_entries
+    .map((entry) => {
+      const id = parseId(entry.pokemon_species.url)
 
       return {
         id,
-        name: pokemon.name,
+        name: entry.pokemon_species.name,
         types: [],
         imageUrl: artworkUrl(id),
       }
@@ -103,7 +108,7 @@ export async function getPokemonCatalog(): Promise<PokemonSummary[]> {
   return catalogPromise
 }
 
-export async function getPokemonOfType(type: PokemonTypeName): Promise<Set<string>> {
+export async function getPokemonOfType(type: PokemonTypeName): Promise<Set<number>> {
   const cached = typeCache.get(type)
 
   if (cached) {
@@ -114,7 +119,11 @@ export async function getPokemonOfType(type: PokemonTypeName): Promise<Set<strin
     API_BASE + encodeURIComponent('/type/' + type),
     'Falha ao carregar o tipo ' + type,
   )
-    .then((data) => new Set(data.pokemon.map((entry) => entry.pokemon.name)))
+    .then((data) => new Set(
+      data.pokemon
+        .map((entry) => parseId(entry.pokemon.url))
+        .filter((id) => id > 0),
+    ))
     .catch((error) => {
       typeCache.delete(type)
       throw error
@@ -124,36 +133,32 @@ export async function getPokemonOfType(type: PokemonTypeName): Promise<Set<strin
   return request
 }
 
-export async function enrichPokemonTypes(
-  catalog: PokemonSummary[],
-  onProgress?: (catalog: PokemonSummary[]) => void,
-): Promise<PokemonSummary[]> {
-  const byName = new Map(
+export async function enrichPokemonTypes(catalog: PokemonSummary[]): Promise<PokemonSummary[]> {
+  const typeSets = await Promise.all(
+    POKEMON_TYPES.map(async (type) => ({
+      type,
+      ids: await getPokemonOfType(type),
+    })),
+  )
+
+  const byId = new Map(
     catalog.map((pokemon) => [
-      pokemon.name,
+      pokemon.id,
       { ...pokemon, types: [] as PokemonTypeName[] },
     ]),
   )
 
-  for (const type of POKEMON_TYPES) {
-    try {
-      const names = await getPokemonOfType(type)
+  for (const { type, ids } of typeSets) {
+    for (const id of ids) {
+      const pokemon = byId.get(id)
 
-      for (const name of names) {
-        const pokemon = byName.get(name)
-
-        if (pokemon && !pokemon.types.includes(type)) {
-          pokemon.types.push(type)
-        }
+      if (pokemon && !pokemon.types.includes(type)) {
+        pokemon.types.push(type)
       }
-
-      onProgress?.(Array.from(byName.values()).sort((a, b) => a.id - b.id))
-    } catch {
-      // A falha em um tipo não impede os demais tipos de serem carregados.
     }
   }
 
-  return Array.from(byName.values()).sort((a, b) => a.id - b.id)
+  return Array.from(byId.values()).sort((a, b) => a.id - b.id)
 }
 
 export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<PokemonBattleData> {
