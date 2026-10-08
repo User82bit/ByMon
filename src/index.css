@@ -1,28 +1,24 @@
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Nunito+Sans:wght@400;600;700&display=swap');
 :root{
-  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  color:#24332d;
-  background:#eef1ed;
-  color-scheme:light;
-  font-synthesis:none;
-  text-rendering:optimizeLegibility;
-  -webkit-font-smoothing:antialiased;
-  --bg:#eef1ed;
-  --surface:rgba(255,255,255,.62);
-  --surface-strong:rgba(255,255,255,.78);
-  --surface-soft:rgba(255,255,255,.46);
-  --border:rgba(255,255,255,.86);
-  --border-soft:rgba(91,108,99,.17);
-  --text:#24332d;
-  --muted:#6b7872;
-  --accent:#4f7465;
-  --accent-strong:#375e50;
-  --accent-soft:rgba(79,116,101,.12);
-  --danger:#9a4f4f;
-  --danger-soft:rgba(154,79,79,.11);
-  --shadow:0 12px 32px rgba(55,72,64,.09);
-  --shadow-soft:0 6px 18px rgba(55,72,64,.07);
+  font-family:'Nunito Sans',system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:#F4F6FF;background:#141A33;color-scheme:dark;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;
+  --night:#141A33;--twilight:#2A2160;--fog:#F4F6FF;--muted:#AEB6D6;--focus:#FFD65A;--danger:#FF6B6B;
+  --team-a:#E53935;--team-b:#1E88E5;
+  --bg:#141A33;--surface:rgba(255,255,255,.10);--surface-strong:rgba(255,255,255,.14);--surface-soft:rgba(255,255,255,.08);
+  --border:rgba(255,255,255,.22);--border-soft:rgba(255,255,255,.15);--text:#F4F6FF;--muted:#AEB6D6;--accent:#FFD65A;--accent-strong:#FFD65A;--accent-soft:rgba(255,214,90,.12);
+  --danger-soft:rgba(255,107,107,.15);--shadow:0 18px 48px rgba(6,8,24,.45);--shadow-soft:0 14px 36px rgba(6,8,24,.4);
 }
+*{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{min-width:320px;margin:0;background:var(--bg);color:var(--text)}
+body{min-width:320px;margin:0;background:#141A33;color:#F4F6FF}
 button,input{font:inherit}
+button{color:inherit}
 #root{min-height:100svh}
+:focus-visible{outline:2px solid #FFD65A!important;outline-offset:2px}
+.glass-1{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(28px) saturate(160%);box-shadow:0 18px 48px rgba(6,8,24,.45),inset 0 1px 0 rgba(255,255,255,.35)}
+.glass-2{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(24px) saturate(170%);box-shadow:0 14px 36px rgba(6,8,24,.4),inset 0 1px 0 rgba(255,255,255,.35)}
+.glass-3{background:rgba(255,255,255,.20);border:1px solid rgba(255,255,255,.34);backdrop-filter:blur(40px) saturate(180%);box-shadow:0 30px 80px rgba(6,8,24,.6),inset 0 1px 0 rgba(255,255,255,.35)}
+@supports not (backdrop-filter:blur(1px)){.glass-1,.glass-2,.glass-3{background:rgba(30,36,70,.94)}}
+@media(prefers-reduced-transparency:reduce){.glass-1,.glass-2,.glass-3{backdrop-filter:none;background:rgba(30,36,70,.94)}}
+@media(max-width:620px){.glass-1,.glass-2,.glass-3{backdrop-filter:blur(16px) saturate(150%)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}

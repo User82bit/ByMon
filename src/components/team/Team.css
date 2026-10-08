@@ -1,4 +1,4 @@
-.team-panel{display:flex;flex-direction:column;gap:8px;min-width:0;padding:11px;border:1px solid var(--border);border-radius:16px;background:rgba(255,255,255,.57);box-shadow:var(--shadow-soft);backdrop-filter:blur(15px) saturate(118%);-webkit-backdrop-filter:blur(15px) saturate(118%)}
+.team-panel{display:flex;flex-direction:column;gap:8px;min-width:0;padding:11px;border:1px solid var(--border);border-radius:16px;background:rgba(255,255,255,.57);box-shadow:var(--shadow-soft);backdrop-filter:blur(28px) saturate(160%);-webkit-backdrop-filter:blur(28px) saturate(160%)}
 .team-panel__header{display:flex;align-items:center;gap:7px}
 .team-panel__name{min-width:0;flex:1;height:38px;border:1px solid rgba(91,108,99,.12);border-radius:10px;padding:5px 9px;font:inherit;font-size:.94rem;font-weight:800;color:#2d3c35;background:rgba(255,255,255,.46);box-shadow:inset 0 1px 0 rgba(255,255,255,.56);transition:border-color 120ms ease,background 120ms ease,box-shadow 120ms ease}
 .team-panel__name:hover{background:rgba(255,255,255,.64)}
