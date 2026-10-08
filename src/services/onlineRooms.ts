@@ -16,11 +16,6 @@ type LocalRoom = Omit<OnlineRoom, 'players'> & {
   password?: string
 }
 
-interface LocalSession {
-  room: OnlineRoom
-  playerId: string
-}
-
 function id(): string {
   return typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
