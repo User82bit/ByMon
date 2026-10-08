@@ -173,7 +173,10 @@ export function OnlineLobby({
     <main className="online-lobby">
       <header className="online-lobby__header">
         <div>
-          <b>{battleStarted ? 'PARTIDA ONLINE' : 'LOBBY ONLINE'}</b>
+          <div className="online-lobby__eyebrow">
+            <b>{battleStarted ? 'PARTIDA ONLINE' : 'LOBBY ONLINE'}</b>
+            {session.source === 'lan' && <span>LAN</span>}
+          </div>
           <h1>{room.name}</h1>
           <p>Código da sala: <strong>{room.code}</strong></p>
         </div>
