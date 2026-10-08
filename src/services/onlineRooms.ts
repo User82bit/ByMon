@@ -61,6 +61,24 @@ export async function getOnlineRoom(
   return data.room
 }
 
+export async function setOnlinePlayerTeam(
+  roomId: string,
+  playerId: string,
+  teamPokemonIds: number[],
+): Promise<OnlineRoom> {
+  const data = await request<{ room: OnlineRoom }>({
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'team',
+      roomId,
+      playerId,
+      teamPokemonIds,
+    }),
+  })
+
+  return data.room
+}
+
 export async function setOnlinePlayerReady(
   roomId: string,
   playerId: string,
