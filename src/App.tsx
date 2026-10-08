@@ -24,7 +24,7 @@ export default function App(){
  useEffect(()=>{void loadCatalog()},[])
 
  function rename(id:string,name:string){setTeams(c=>c.map(t=>t.id===id?{...t,name:name||'Time sem nome'}:t))}
- function addTeam(){if(teams.length<8)setTeams(c=>c.concat(createTeam()))}
+ function addTeam(){setTeams(c=>c.concat(createTeam()))}
  function removeTeam(id:string){if(teams.length>2)setTeams(c=>c.filter(t=>t.id!==id))}
  function addPokemon(id:string,p:PokemonSummary){setTeams(c=>c.map(t=>t.id!==id||t.pokemon.length>=6||t.pokemon.some(x=>x.id===p.id)?t:{...t,pokemon:t.pokemon.concat(p)}))}
  function removePokemon(id:string,pokemonId:number){setTeams(c=>c.map(t=>t.id===id?{...t,pokemon:t.pokemon.filter(p=>p.id!==pokemonId)}:t))}
