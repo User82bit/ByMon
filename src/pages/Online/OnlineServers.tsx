@@ -111,7 +111,7 @@ export function OnlineServers({
         <div>
           <b>BYMON ONLINE</b>
           <h1>Salas de batalha</h1>
-          <p>Crie uma sala ou entre em uma partida existente.</p>
+          <p>O host vira o servidor temporário da sala. A Vercel cuida apenas da descoberta e da conexão inicial.</p>
         </div>
         <Button variant="secondary" onClick={onBack}>Voltar</Button>
       </header>
@@ -135,7 +135,7 @@ export function OnlineServers({
         <div className="online-servers__header">
           <div>
             <h2>Salas públicas</h2>
-            <small>Atualização automática a cada 3 segundos.</small>
+            <small>Salas hospedadas diretamente pelos navegadores dos jogadores.</small>
           </div>
           <Button variant="secondary" onClick={() => void load()}>Atualizar</Button>
         </div>
