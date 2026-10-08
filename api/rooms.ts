@@ -34,7 +34,8 @@ interface PlayerBody {
 
 type Body = CreateBody | JoinBody | PlayerBody
 
-type StoredRoom = OnlineRoom & { passwordHash?: string }
+type StoredPlayer = OnlinePlayer & { teamPokemonIds: number[] }
+type StoredRoom = Omit<OnlineRoom, 'players'> & { players: StoredPlayer[]; passwordHash?: string }
 
 declare global {
   // eslint-disable-next-line no-var
@@ -95,7 +96,7 @@ function isActive(player: OnlinePlayer, now: number): boolean {
   return now - player.lastSeen <= PLAYER_STALE_MS
 }
 
-function prunePlayers(room: OnlineRoom, now: number): OnlineRoom {
+function prunePlayers(room: StoredRoom, now: number): StoredRoom {
   const players = room.players.filter((player) => isActive(player, now))
 
   if (!players.some((player) => player.id === room.hostId) && players.length > 0) {
@@ -149,7 +150,7 @@ async function listRooms(redis: ReturnType<typeof createClient>): Promise<Respon
       continue
     }
 
-    const room = prunePlayers(JSON.parse(raw) as OnlineRoom, now)
+    const room = prunePlayers(JSON.parse(raw) as StoredRoom, now)
 
     if (room.status !== 'waiting') continue
 
@@ -284,7 +285,7 @@ async function updatePlayer(redis: ReturnType<typeof createClient>, body: Player
   const raw = await redis.get(roomKey(body.roomId))
   if (!raw) return json({ error: 'Sala não encontrada.' }, 404)
 
-  const room = prunePlayers(JSON.parse(raw) as OnlineRoom, Date.now())
+  const room = prunePlayers(JSON.parse(raw) as StoredRoom, Date.now())
   const player = room.players.find((entry) => entry.id === body.playerId)
 
   if (!player) return json({ error: 'Jogador não está na sala.' }, 403)
