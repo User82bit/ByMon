@@ -4,6 +4,9 @@ export interface OnlinePlayer {
   id: string
   name: string
   host: boolean
+  ready: boolean
+  teamSize: number
+  lastSeen: number
 }
 
 export interface OnlineRoom {
