@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto'
 import dgram from 'node:dgram'
 import type { AddressInfo } from 'node:net'
 import os from 'node:os'
-import type { Connect, Plugin } from 'vite'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import type { Plugin } from 'vite'
 
 const DISCOVERY_PORT = 41234
 const DISCOVERY_MAGIC = 'BYMON-LAN-1'
@@ -64,7 +65,7 @@ interface LanState {
   serverPort: number
 }
 
-function json(response: Connect.ServerResponse, data: unknown, status = 200): void {
+function json(response: ServerResponse, data: unknown, status = 200): void {
   response.statusCode = status
   response.setHeader('Content-Type', 'application/json; charset=utf-8')
   response.setHeader('Cache-Control', 'no-store')
@@ -359,7 +360,7 @@ function findTargetRoom(
   return { remote: findDiscoveredRoom(state, input) }
 }
 
-async function readBody(request: Connect.IncomingMessage): Promise<Record<string, unknown>> {
+async function readBody(request: IncomingMessage): Promise<Record<string, unknown>> {
   let text = ''
   let size = 0
 
@@ -463,8 +464,8 @@ function discoveryList(state: LanState) {
 }
 
 async function handleLanRequest(
-  request: Connect.IncomingMessage,
-  response: Connect.ServerResponse,
+  request: IncomingMessage,
+  response: ServerResponse,
   state: LanState,
 ): Promise<void> {
   const url = new URL(request.url ?? '/', 'http://bymon.lan')
