@@ -9,13 +9,9 @@ interface NamedResource {
   url: string
 }
 
-interface PokedexEntry {
-  entry_number: number
-  pokemon_species: NamedResource
-}
-
-interface NationalPokedexResponse {
-  pokemon_entries: PokedexEntry[]
+interface CatalogResponse {
+  count: number
+  results: NamedResource[]
 }
 
 interface TypeResponse {
@@ -25,6 +21,8 @@ interface TypeResponse {
 interface PokemonResponse {
   id: number
   name: string
+  species: NamedResource
+  moves: Array<{ move: NamedResource }>
   height: number
   weight: number
   base_experience: number
@@ -76,25 +74,54 @@ async function fetchJson<T>(url: string, description: string, attempts = 3): Pro
   )
 }
 
+function isExcludedCosmeticForm(name: string): boolean {
+  return name.includes('-totem') ||
+    /-(cap|starter|cosplay|rock-star|belle|pop-star|phd|libre)$/.test(name)
+}
+
+function sortCatalog(a: PokemonSummary, b: PokemonSummary): number {
+  const aIsForm = a.id >= 10000
+  const bIsForm = b.id >= 10000
+
+  if (aIsForm !== bIsForm) return aIsForm ? 1 : -1
+  return a.id - b.id
+}
+
 async function loadCatalog(): Promise<PokemonSummary[]> {
-  const data = await fetchJson<NationalPokedexResponse>(
-    API_BASE + encodeURIComponent('/pokedex/national'),
-    'Falha ao carregar a National Pokédex',
+  let data = await fetchJson<CatalogResponse>(
+    API_BASE + encodeURIComponent('/pokemon?limit=2000'),
+    'Falha ao carregar o catálogo de Pokémon',
   )
 
-  return data.pokemon_entries
+  if (data.results.length < data.count) {
+    data = await fetchJson<CatalogResponse>(
+      API_BASE + encodeURIComponent('/pokemon?limit=' + data.count),
+      'Falha ao completar o catálogo de Pokémon',
+    )
+  }
+
+  if (data.results.length < data.count) {
+    throw new Error(
+      'O catálogo recebido está incompleto (' +
+      data.results.length + ' de ' + data.count + ' Pokémon). Tente novamente.',
+    )
+  }
+
+  return data.results
+    .filter((entry) => !isExcludedCosmeticForm(entry.name))
     .map((entry) => {
-      const id = parseId(entry.pokemon_species.url)
+      const id = parseId(entry.url)
 
       return {
         id,
-        name: entry.pokemon_species.name,
+        name: entry.name,
         types: [],
         imageUrl: artworkUrl(id),
+        kind: entry.name.endsWith('-gmax') ? 'gmax' : 'normal',
       }
     })
     .filter((pokemon) => pokemon.id > 0)
-    .sort((a, b) => a.id - b.id)
+    .sort(sortCatalog)
 }
 
 export async function getPokemonCatalog(): Promise<PokemonSummary[]> {
@@ -158,10 +185,14 @@ export async function enrichPokemonTypes(catalog: PokemonSummary[]): Promise<Pok
     }
   }
 
-  return Array.from(byId.values()).sort((a, b) => a.id - b.id)
+  const enriched = Array.from(byId.values()).sort(sortCatalog)
+  const baseSpecies = enriched.filter((pokemon) => pokemon.id < 10000 && pokemon.kind === 'normal')
+  const dynamax = baseSpecies.map((pokemon) => ({ ...pokemon, id: 200000 + pokemon.id, baseId: pokemon.id, name: pokemon.name + '-dynamax', kind: 'dynamax' as const }))
+  return enriched.concat(dynamax)
 }
 
 export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<PokemonBattleData> {
+  const requestId = pokemon.kind === 'dynamax' ? (pokemon.baseId ?? pokemon.id - 200000) : pokemon.id
   const cached = battleCache.get(pokemon.id)
 
   if (cached) {
@@ -169,7 +200,7 @@ export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<Pok
   }
 
   const request = fetchJson<PokemonResponse>(
-    API_BASE + encodeURIComponent('/pokemon/' + pokemon.id),
+    API_BASE + encodeURIComponent('/pokemon/' + requestId),
     'Falha ao carregar os dados de ' + pokemon.name,
   )
     .then((data) => {
@@ -177,13 +208,17 @@ export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<Pok
         data.stats.find((stat) => stat.stat.name === name)?.base_stat ?? 1
 
       return {
-        id: data.id,
-        name: data.name,
+        id: pokemon.id,
+        name: pokemon.name,
+        kind: pokemon.kind,
+        baseId: pokemon.baseId,
+        speciesId: parseId(data.species.url),
+        moves: data.moves.map((entry) => entry.move.name),
         types: data.types
           .sort((a, b) => a.slot - b.slot)
           .map((entry) => entry.type.name as PokemonTypeName),
         imageUrl:
-          data.sprites.other?.['official-artwork']?.front_default ?? artworkUrl(data.id),
+          data.sprites.other?.['official-artwork']?.front_default ?? artworkUrl(requestId),
         stats: {
           hp: findStat('hp'),
           attack: findStat('attack'),

@@ -1,9 +1,7 @@
-.pokemon-card{display:flex;flex-direction:column;min-width:0;border:1px solid var(--border);border-radius:16px;background:rgba(255,255,255,.58);overflow:hidden;cursor:grab;box-shadow:var(--shadow-soft);backdrop-filter:blur(14px) saturate(115%);-webkit-backdrop-filter:blur(14px) saturate(115%);transition:transform 140ms ease,box-shadow 140ms ease,border-color 140ms ease,background 140ms ease}
-.pokemon-card:hover{transform:translateY(-3px);border-color:rgba(79,116,101,.22);background:rgba(255,255,255,.7);box-shadow:0 13px 28px rgba(55,72,64,.11)}
-.pokemon-card:focus-visible{outline:3px solid rgba(79,116,101,.15);outline-offset:2px}
-.pokemon-card:active{cursor:grabbing}
-.pokemon-card__image-wrap{display:grid;place-items:center;min-height:140px;padding:11px;background:rgba(244,247,244,.48);border-bottom:1px solid rgba(91,108,99,.07)}
-.pokemon-card__image-wrap img{width:100%;max-width:145px;aspect-ratio:1;object-fit:contain}
-.pokemon-card__content{display:flex;flex-direction:column;gap:8px;padding:10px 12px 12px}
-.pokemon-card__content strong{color:#2d3c35;font-size:.92rem}
-.pokemon-card__types{display:flex;flex-wrap:wrap;gap:5px}
+.pokemon-card{display:flex;flex-direction:column;min-width:0;border:1px solid rgba(255,255,255,.17);border-radius:18px;background:rgba(255,255,255,.075);overflow:visible;cursor:grab;box-shadow:0 7px 20px rgba(6,8,24,.22);transition:border-color 140ms ease,background 140ms ease}
+.pokemon-card:hover{border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.12)}
+.pokemon-card:focus-visible{outline:2px solid #FFD65A;outline-offset:2px}.pokemon-card:active{cursor:grabbing}
+.pokemon-card__image-wrap{position:relative;z-index:1;display:grid;place-items:center;min-height:122px;padding:7px 10px 0;background:transparent;border-bottom:0}
+.pokemon-card__image-wrap img{width:100%;max-width:140px;aspect-ratio:1;object-fit:contain;filter:drop-shadow(0 8px 9px rgba(0,0,0,.25))}
+.pokemon-card__placeholder{display:grid;place-items:center;width:92px;height:92px;border:1px dashed rgba(255,255,255,.28);border-radius:50%;color:#AEB6D6;font-size:32px}
+.pokemon-card__content{display:flex;flex-direction:column;gap:8px;padding:8px 11px 12px}.pokemon-card__content strong{color:#F4F6FF;font-size:.92rem;overflow-wrap:anywhere}.pokemon-card__types{display:flex;flex-wrap:wrap;gap:5px}
