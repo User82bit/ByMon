@@ -151,7 +151,7 @@ export function simulateBattle(teams: Team[], details: Map<number, PokemonBattle
 
   const remaining = teams.flatMap((team) => {
     const queued = queues.get(team.id) ?? []
-    const active = champion.teamId === team.id ? [champion] : []
+    const active = champion && champion.teamId === team.id ? [champion] : []
     return active.concat(queued).map((entry) => ({
       teamId: team.id,
       teamName: team.name,

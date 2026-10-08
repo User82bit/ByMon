@@ -128,7 +128,12 @@ export async function enrichPokemonTypes(
   catalog: PokemonSummary[],
   onProgress?: (catalog: PokemonSummary[]) => void,
 ): Promise<PokemonSummary[]> {
-  const byName = new Map(catalog.map((pokemon) => [pokemon.name, { ...pokemon, types: [] }]))
+  const byName = new Map(
+    catalog.map((pokemon) => [
+      pokemon.name,
+      { ...pokemon, types: [] as PokemonTypeName[] },
+    ]),
+  )
 
   for (const type of POKEMON_TYPES) {
     try {
