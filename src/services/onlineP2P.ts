@@ -652,11 +652,25 @@ export class OnlineP2PPeer {
   }
 
   private async handleSignal(signal: OnlineSignal): Promise<void> {
+    const connection = this.createConnection()
+
+    if (signal.signalType === 'ice-candidate') {
+      const candidate = asCandidate(signal.data)
+      if (!candidate) return
+
+      if (connection.remoteDescription) {
+        await connection.addIceCandidate(candidate)
+      } else {
+        this.pendingCandidates.push(candidate)
+      }
+
+      return
+    }
+
     if (signal.signalType !== 'offer') {
       return
     }
 
-    const connection = this.createConnection()
     const offer = asDescription(signal.data)
     if (!offer) return
 
