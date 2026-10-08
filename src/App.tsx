@@ -1,122 +1,46 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
+import {useEffect,useState} from 'react'
+import {MainLayout} from './layout/MainLayout'
+import {Home} from './pages/Home/Home'
+import {Battle} from './pages/Battle/Battle'
+import {getPokemonBattleData,getPokemonCatalog} from './services/pokeapi'
+import {simulateBattle} from './utils/battle'
+import type {BattleResult,PokemonBattleData,PokemonSummary,Team} from './types/pokemon'
 import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+function emptyTeams():Team[]{return[{id:'team-1',name:'Time A',pokemon:[]},{id:'team-2',name:'Time B',pokemon:[]}]}
+function createTeam():Team{return{id:'team-'+crypto.randomUUID(),name:'Novo Time',pokemon:[]}}
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+export default function App(){
+ const[screen,setScreen]=useState<'home'|'battle'>('home')
+ const[teams,setTeams]=useState<Team[]>(emptyTeams)
+ const[catalog,setCatalog]=useState<PokemonSummary[]>([])
+ const[loading,setLoading]=useState(true)
+ const[error,setError]=useState<string|null>(null)
+ const[battleLoading,setBattleLoading]=useState(false)
+ const[result,setResult]=useState<BattleResult|null>(null)
+ const[details,setDetails]=useState<Map<number,PokemonBattleData>>(new Map())
 
-      <div className="ticks"></div>
+ async function loadCatalog(){setLoading(true);setError(null);try{setCatalog(await getPokemonCatalog())}catch(e){setError(e instanceof Error?e.message:'Erro desconhecido.')}finally{setLoading(false)}}
+ useEffect(()=>{void loadCatalog()},[])
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+ function rename(id:string,name:string){setTeams(c=>c.map(t=>t.id===id?{...t,name:name||'Time sem nome'}:t))}
+ function addTeam(){if(teams.length<8)setTeams(c=>c.concat(createTeam()))}
+ function removeTeam(id:string){if(teams.length>2)setTeams(c=>c.filter(t=>t.id!==id))}
+ function addPokemon(id:string,p:PokemonSummary){setTeams(c=>c.map(t=>t.id!==id||t.pokemon.length>=6||t.pokemon.some(x=>x.id===p.id)?t:{...t,pokemon:t.pokemon.concat(p)}))}
+ function removePokemon(id:string,pokemonId:number){setTeams(c=>c.map(t=>t.id===id?{...t,pokemon:t.pokemon.filter(p=>p.id!==pokemonId)}:t))}
+ function quickAdd(p:PokemonSummary){const t=teams.find(x=>x.pokemon.length<6&&!x.pokemon.some(y=>y.id===p.id));if(t)addPokemon(t.id,p)}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+ async function battle(){
+  if(!teams.every(t=>t.pokemon.length>0))return
+  setBattleLoading(true)
+  try{
+   const all=teams.flatMap(t=>t.pokemon)
+   const data=await Promise.all(all.map(p=>getPokemonBattleData(p)))
+   const map=new Map(data.map(p=>[p.id,p]))
+   setDetails(map);setResult(simulateBattle(teams,map));setScreen('battle');window.scrollTo({top:0,behavior:'smooth'})
+  }catch(e){window.alert(e instanceof Error?e.message:'Não foi possível iniciar a batalha.')}finally{setBattleLoading(false)}
+ }
+ function reset(){setScreen('home');setTeams(emptyTeams());setResult(null);setDetails(new Map());window.scrollTo({top:0,behavior:'smooth'})}
+
+ return <MainLayout>{screen==='home'?<Home teams={teams} catalog={catalog} loading={loading} error={error} onRenameTeam={rename} onRemoveTeam={removeTeam} onAddTeam={addTeam} onDropPokemon={addPokemon} onRemovePokemon={removePokemon} onRetryCatalog={loadCatalog} onQuickAdd={quickAdd} onBattle={battle} battleLoading={battleLoading}/>:result?<Battle result={result} teams={teams} details={details} onReturn={reset}/>:null}</MainLayout>
 }
-
-export default App
