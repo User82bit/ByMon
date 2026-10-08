@@ -1,20 +1,41 @@
 const POKEAPI_BASE = 'https://pokeapi.co/api/v2'
 
 const ALLOWED_ROOTS = ['/pokemon', '/type']
+const POKEAPI_ORIGIN = new URL(POKEAPI_BASE).origin
+
+function parseRequestedPath(path: string): URL | null {
+  try {
+    return new URL(path, POKEAPI_ORIGIN)
+  } catch {
+    return null
+  }
+}
 
 function isAllowedPath(path: string): boolean {
-  try {
-    const target = new URL(path, POKEAPI_BASE)
+  const target = parseRequestedPath(path)
 
-    return (
-      target.origin === POKEAPI_BASE &&
-      ALLOWED_ROOTS.some(
-        (root) => target.pathname === root || target.pathname.startsWith(root + '/'),
-      )
-    )
-  } catch {
+  if (!target || target.origin !== POKEAPI_ORIGIN) {
     return false
   }
+
+  return ALLOWED_ROOTS.some(
+    (root) => target.pathname === root || target.pathname.startsWith(root + '/'),
+  )
+}
+
+function buildUpstreamUrl(path: string): URL {
+  const target = parseRequestedPath(path)
+
+  if (!target) {
+    throw new Error('Caminho inválido.')
+  }
+
+  const upstream = new URL(POKEAPI_BASE)
+  upstream.pathname =
+    upstream.pathname.replace(/\/$/, '') + target.pathname
+  upstream.search = target.search
+
+  return upstream
 }
 
 export default {
@@ -30,8 +51,7 @@ export default {
     }
 
     try {
-      const upstreamUrl = new URL(path, POKEAPI_BASE)
-      const upstream = await fetch(upstreamUrl, {
+      const upstream = await fetch(buildUpstreamUrl(path), {
         headers: {
           Accept: 'application/json',
         },
