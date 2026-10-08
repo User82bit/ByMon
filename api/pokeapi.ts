@@ -1,6 +1,6 @@
 const POKEAPI_BASE = 'https://pokeapi.co/api/v2'
 
-const ALLOWED_ROOTS = ['/pokemon', '/type']
+const ALLOWED_ROOTS = ['/pokemon', '/type', '/pokedex']
 const POKEAPI_ORIGIN = new URL(POKEAPI_BASE).origin
 
 function parseRequestedPath(path: string): URL | null {
