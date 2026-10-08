@@ -3,7 +3,18 @@ const POKEAPI_BASE = 'https://pokeapi.co/api/v2'
 const ALLOWED_ROOTS = ['/pokemon', '/type']
 
 function isAllowedPath(path: string): boolean {
-  return ALLOWED_ROOTS.some((root) => path === root || path.startsWith(root + '/'))
+  try {
+    const target = new URL(path, POKEAPI_BASE)
+
+    return (
+      target.origin === POKEAPI_BASE &&
+      ALLOWED_ROOTS.some(
+        (root) => target.pathname === root || target.pathname.startsWith(root + '/'),
+      )
+    )
+  } catch {
+    return false
+  }
 }
 
 export default {
@@ -19,7 +30,8 @@ export default {
     }
 
     try {
-      const upstream = await fetch(POKEAPI_BASE + path, {
+      const upstreamUrl = new URL(path, POKEAPI_BASE)
+      const upstream = await fetch(upstreamUrl, {
         headers: {
           Accept: 'application/json',
         },
