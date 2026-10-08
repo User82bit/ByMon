@@ -1,11 +1,14 @@
 import type { OnlinePlayer, OnlineRoom, RoomListItem, RoomSession } from '../types/online'
 
-const API_URL = import.meta.env.VITE_ONLINE_API_URL?.trim() ?? ''
+const CONFIGURED_API_URL = import.meta.env.VITE_ONLINE_API_URL?.trim() ?? ''
+const LAN_API_URL = '/api/lan'
 const LOCAL_STORAGE_KEY = 'bymon-online-local-rooms'
 const ROOM_TTL_MS = 6 * 60 * 60 * 1000
 const PLAYER_STALE_MS = 30_000
 
-export const ONLINE_LOCAL_MODE = API_URL.length === 0
+export type OnlineMode = 'local' | 'lan' | 'server'
+
+let resolvedMode: OnlineMode | null = CONFIGURED_API_URL ? 'server' : null
 
 type LocalPlayer = OnlinePlayer & {
   teamPokemonIds: number[]
@@ -16,18 +19,13 @@ type LocalRoom = Omit<OnlineRoom, 'players'> & {
   password?: string
 }
 
-interface LocalSession {
-  room: OnlineRoom
-  playerId: string
-}
-
 function id(): string {
   return typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
 
-function publicRoom(room: LocalRoom): OnlineRoom {
+function publicLocalRoom(room: LocalRoom): OnlineRoom {
   return {
     id: room.id,
     name: room.name,
@@ -75,8 +73,7 @@ function pruneLocalRooms(): LocalRoom[] {
     const players = room.players.filter((player) => now - player.lastSeen <= PLAYER_STALE_MS)
     if (players.length === 0) continue
 
-    const host = players.find((player) => player.id === room.hostId)
-    if (!host) {
+    if (!players.some((player) => player.id === room.hostId)) {
       players[0].host = true
       room.hostId = players[0].id
     }
@@ -89,7 +86,10 @@ function pruneLocalRooms(): LocalRoom[] {
   return activeRooms
 }
 
-function findLocalRoom(rooms: LocalRoom[], input: { roomId?: string; code?: string }): LocalRoom | undefined {
+function findLocalRoom(
+  rooms: LocalRoom[],
+  input: { roomId?: string; code?: string },
+): LocalRoom | undefined {
   if (input.roomId) return rooms.find((room) => room.id === input.roomId)
 
   const code = input.code?.trim().toUpperCase()
@@ -103,6 +103,7 @@ function makeLocalCode(rooms: LocalRoom[]): string {
 
   for (let attempt = 0; attempt < 20; attempt += 1) {
     let code = ''
+
     for (let index = 0; index < 6; index += 1) {
       code += alphabet[Math.floor(Math.random() * alphabet.length)]
     }
@@ -158,8 +159,9 @@ function localCreateRoom(input: {
   writeLocalRooms(rooms)
 
   return {
-    room: publicRoom(room),
+    room: publicLocalRoom(room),
     playerId,
+    source: 'local',
   }
 }
 
@@ -195,8 +197,9 @@ function localJoinRoom(input: {
   writeLocalRooms(rooms)
 
   return {
-    room: publicRoom(room),
+    room: publicLocalRoom(room),
     playerId,
+    source: 'local',
   }
 }
 
@@ -212,7 +215,7 @@ function localGetRoom(roomId: string, playerId: string): OnlineRoom {
   player.lastSeen = Date.now()
   writeLocalRooms(rooms)
 
-  return publicRoom(room)
+  return publicLocalRoom(room)
 }
 
 function localSetTeam(roomId: string, playerId: string, teamPokemonIds: number[]): OnlineRoom {
@@ -238,7 +241,7 @@ function localSetTeam(roomId: string, playerId: string, teamPokemonIds: number[]
   player.lastSeen = Date.now()
 
   writeLocalRooms(rooms)
-  return publicRoom(room)
+  return publicLocalRoom(room)
 }
 
 function localSetReady(roomId: string, playerId: string, ready: boolean): OnlineRoom {
@@ -266,7 +269,7 @@ function localSetReady(roomId: string, playerId: string, ready: boolean): Online
   }
 
   writeLocalRooms(rooms)
-  return publicRoom(room)
+  return publicLocalRoom(room)
 }
 
 function localLeaveRoom(roomId: string, playerId: string): void {
@@ -289,17 +292,22 @@ function localLeaveRoom(roomId: string, playerId: string): void {
   writeLocalRooms(rooms)
 }
 
-async function request<T>(input: RequestInit = {}, query = ''): Promise<T> {
+async function fetchJson<T>(
+  url: string,
+  init: RequestInit = {},
+  timeoutMs = 8_000,
+): Promise<T> {
   const controller = new AbortController()
-  const timeout = window.setTimeout(() => controller.abort(), 8000)
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs)
 
   try {
-    const response = await fetch(API_URL + query, {
-      ...input,
+    const response = await fetch(url, {
+      ...init,
+      cache: 'no-store',
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
-        ...(input.headers ?? {}),
+        ...(init.headers ?? {}),
       },
     })
 
@@ -322,25 +330,82 @@ async function request<T>(input: RequestInit = {}, query = ''): Promise<T> {
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error('O servidor online não respondeu.')
     }
+
     throw error
   } finally {
     window.clearTimeout(timeout)
   }
 }
 
+export async function getOnlineMode(): Promise<OnlineMode> {
+  if (resolvedMode) return resolvedMode
+
+  try {
+    const data = await fetchJson<{ available?: boolean; mode?: string }>(
+      LAN_API_URL + '/status',
+      {},
+      2_000,
+    )
+
+    if (data.available && data.mode === 'lan') {
+      resolvedMode = 'lan'
+      return resolvedMode
+    }
+  } catch {
+    // A ausência do serviço LAN significa somente que o modo local será usado.
+  }
+
+  resolvedMode = 'local'
+  return resolvedMode
+}
+
+async function triggerLanDiscovery(): Promise<void> {
+  await fetchJson<{ ok: boolean }>(
+    LAN_API_URL + '/discover',
+    { method: 'POST', body: JSON.stringify({}) },
+    2_000,
+  ).catch(() => ({ ok: false }))
+
+  await new Promise((resolve) => window.setTimeout(resolve, 120))
+}
+
+async function listLanRooms(): Promise<RoomListItem[]> {
+  await triggerLanDiscovery()
+
+  const data = await fetchJson<{ rooms: RoomListItem[] }>(
+    LAN_API_URL + '/discovery',
+  )
+
+  return data.rooms.map((room) => ({
+    ...room,
+    source: 'lan',
+  }))
+}
+
 export async function listOnlineRooms(): Promise<RoomListItem[]> {
-  if (ONLINE_LOCAL_MODE) {
+  const mode = await getOnlineMode()
+
+  if (mode === 'lan') return listLanRooms()
+
+  if (mode === 'local') {
     return pruneLocalRooms()
       .filter((room) => !room.private && room.status === 'waiting')
       .sort((a, b) => b.createdAt - a.createdAt)
       .map((room) => ({
-        ...publicRoom(room),
+        ...publicLocalRoom(room),
         passwordRequired: room.private,
+        source: 'local',
       }))
   }
 
-  const data = await request<{ rooms: RoomListItem[] }>()
-  return data.rooms
+  const data = await fetchJson<{ rooms: RoomListItem[] }>(
+    CONFIGURED_API_URL,
+  )
+
+  return data.rooms.map((room) => ({
+    ...room,
+    source: 'server',
+  }))
 }
 
 export async function createOnlineRoom(input: {
@@ -350,12 +415,29 @@ export async function createOnlineRoom(input: {
   password?: string
   playerName: string
 }): Promise<RoomSession> {
-  if (ONLINE_LOCAL_MODE) return localCreateRoom(input)
+  const mode = await getOnlineMode()
 
-  return request<RoomSession>({
-    method: 'POST',
-    body: JSON.stringify({ action: 'create', ...input }),
-  })
+  if (mode === 'lan') {
+    return fetchJson<RoomSession>(
+      LAN_API_URL + '/rooms',
+      {
+        method: 'POST',
+        body: JSON.stringify({ action: 'create', ...input }),
+      },
+    )
+  }
+
+  if (mode === 'local') return localCreateRoom(input)
+
+  const session = await fetchJson<RoomSession>(
+    CONFIGURED_API_URL,
+    {
+      method: 'POST',
+      body: JSON.stringify({ action: 'create', ...input }),
+    },
+  )
+
+  return { ...session, source: 'server' }
 }
 
 export async function joinOnlineRoom(input: {
@@ -364,24 +446,65 @@ export async function joinOnlineRoom(input: {
   password?: string
   playerName: string
 }): Promise<RoomSession> {
-  if (ONLINE_LOCAL_MODE) return localJoinRoom(input)
+  const mode = await getOnlineMode()
 
-  return request<RoomSession>({
-    method: 'POST',
-    body: JSON.stringify({ action: 'join', ...input }),
-  })
+  if (mode === 'lan') {
+    await triggerLanDiscovery()
+
+    return fetchJson<RoomSession>(
+      LAN_API_URL + '/rooms',
+      {
+        method: 'POST',
+        body: JSON.stringify({ action: 'join', ...input }),
+      },
+    )
+  }
+
+  if (mode === 'local') return localJoinRoom(input)
+
+  const session = await fetchJson<RoomSession>(
+    CONFIGURED_API_URL,
+    {
+      method: 'POST',
+      body: JSON.stringify({ action: 'join', ...input }),
+    },
+  )
+
+  return { ...session, source: 'server' }
 }
 
 export async function getOnlineRoom(
   roomId: string,
   playerId: string,
 ): Promise<OnlineRoom> {
-  if (ONLINE_LOCAL_MODE) return localGetRoom(roomId, playerId)
+  const mode = await getOnlineMode()
 
-  const data = await request<{ room: OnlineRoom }>(
-    undefined,
-    '?roomId=' + encodeURIComponent(roomId) + '&playerId=' + encodeURIComponent(playerId),
+  if (mode === 'lan') {
+    const data = await fetchJson<{ room: OnlineRoom }>(
+      LAN_API_URL + '/rooms',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'heartbeat',
+          roomId,
+          playerId,
+        }),
+      },
+    )
+
+    return data.room
+  }
+
+  if (mode === 'local') return localGetRoom(roomId, playerId)
+
+  const data = await fetchJson<{ room: OnlineRoom }>(
+    CONFIGURED_API_URL +
+      '?roomId=' +
+      encodeURIComponent(roomId) +
+      '&playerId=' +
+      encodeURIComponent(playerId),
   )
+
   return data.room
 }
 
@@ -390,19 +513,41 @@ export async function setOnlinePlayerTeam(
   playerId: string,
   teamPokemonIds: number[],
 ): Promise<OnlineRoom> {
-  if (ONLINE_LOCAL_MODE) {
+  const mode = await getOnlineMode()
+
+  if (mode === 'lan') {
+    const data = await fetchJson<{ room: OnlineRoom }>(
+      LAN_API_URL + '/rooms',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'team',
+          roomId,
+          playerId,
+          teamPokemonIds,
+        }),
+      },
+    )
+
+    return data.room
+  }
+
+  if (mode === 'local') {
     return localSetTeam(roomId, playerId, teamPokemonIds)
   }
 
-  const data = await request<{ room: OnlineRoom }>({
-    method: 'POST',
-    body: JSON.stringify({
-      action: 'team',
-      roomId,
-      playerId,
-      teamPokemonIds,
-    }),
-  })
+  const data = await fetchJson<{ room: OnlineRoom }>(
+    CONFIGURED_API_URL,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'team',
+        roomId,
+        playerId,
+        teamPokemonIds,
+      }),
+    },
+  )
 
   return data.room
 }
@@ -412,35 +557,77 @@ export async function setOnlinePlayerReady(
   playerId: string,
   ready: boolean,
 ): Promise<OnlineRoom> {
-  if (ONLINE_LOCAL_MODE) {
+  const mode = await getOnlineMode()
+
+  if (mode === 'lan') {
+    const data = await fetchJson<{ room: OnlineRoom }>(
+      LAN_API_URL + '/rooms',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'ready',
+          roomId,
+          playerId,
+          ready,
+        }),
+      },
+    )
+
+    return data.room
+  }
+
+  if (mode === 'local') {
     return localSetReady(roomId, playerId, ready)
   }
 
-  const data = await request<{ room: OnlineRoom }>({
-    method: 'POST',
-    body: JSON.stringify({
-      action: 'ready',
-      roomId,
-      playerId,
-      ready,
-    }),
-  })
+  const data = await fetchJson<{ room: OnlineRoom }>(
+    CONFIGURED_API_URL,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'ready',
+        roomId,
+        playerId,
+        ready,
+      }),
+    },
+  )
 
   return data.room
 }
 
 export async function leaveOnlineRoom(roomId: string, playerId: string): Promise<void> {
-  if (ONLINE_LOCAL_MODE) {
+  const mode = await getOnlineMode()
+
+  if (mode === 'lan') {
+    await fetchJson(
+      LAN_API_URL + '/rooms',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'leave',
+          roomId,
+          playerId,
+        }),
+      },
+    )
+    return
+  }
+
+  if (mode === 'local') {
     localLeaveRoom(roomId, playerId)
     return
   }
 
-  await request({
-    method: 'POST',
-    body: JSON.stringify({
-      action: 'leave',
-      roomId,
-      playerId,
-    }),
-  })
+  await fetchJson(
+    CONFIGURED_API_URL,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'leave',
+        roomId,
+        playerId,
+      }),
+    },
+  )
 }
