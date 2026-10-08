@@ -1,6 +1,6 @@
 import type { OnlineRoom, RoomListItem, RoomSession } from '../types/online'
 
-const API_URL = import.meta.env.VITE_ONLINE_API_URL?.trim() || '/api/rooms'
+const API_URL = '/api/rooms'
 
 async function request<T>(input: RequestInit = {}, query = ''): Promise<T> {
   const controller = new AbortController()
