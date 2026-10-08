@@ -1,11 +1,28 @@
 import type { OnlinePlayer, OnlineRoom, RoomListItem, RoomSession } from '../types/online'
 
-const API_URL = import.meta.env.VITE_ONLINE_API_URL?.trim() ?? ''
+const configuredApiUrl = import.meta.env.VITE_ONLINE_API_URL?.trim() ?? ''
+
+function isPrivateNetworkHostname(hostname: string): boolean {
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return false
+  if (hostname.endsWith('.local')) return true
+
+  const octets = hostname.split('.').map(Number)
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet))) return false
+
+  const [first, second] = octets
+  return first === 10 ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168)
+}
+
+const API_URL = configuredApiUrl ||
+  (isPrivateNetworkHostname(window.location.hostname) ? '/api/lan' : '')
+
+export const ONLINE_LAN_MODE = API_URL === '/api/lan'
+export const ONLINE_LOCAL_MODE = API_URL === ''
 const LOCAL_STORAGE_KEY = 'bymon-online-local-rooms'
 const ROOM_TTL_MS = 6 * 60 * 60 * 1000
 const PLAYER_STALE_MS = 30_000
-
-export const ONLINE_LOCAL_MODE = API_URL.length === 0
 
 type LocalPlayer = OnlinePlayer & {
   teamPokemonIds: number[]
