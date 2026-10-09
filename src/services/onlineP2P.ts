@@ -11,7 +11,25 @@ import type {
 } from '../types/online'
 
 const SIGNAL_POLL_MS = 700
+export const ONLINE_TEAM_COLORS = [
+  '#E53935', '#1E88E5', '#43A047', '#FB8C00', '#8E24AA',
+  '#EC407A', '#00ACC1', '#FDD835', '#6D4C41', '#546E7A',
+] as const
 const ICE_SERVERS = getIceServers()
+
+export function getOnlineTeamColor(index: number): string {
+  return ONLINE_TEAM_COLORS[Math.abs(index) % ONLINE_TEAM_COLORS.length]
+}
+
+function normalizeTeamColor(value: unknown, fallback: string): string {
+  return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value)
+    ? value.toUpperCase()
+    : fallback
+}
+
+function errorFrom(value: unknown, fallback: string): Error {
+  return value instanceof Error ? value : new Error(fallback)
+}
 
 type P2PMessage =
   | {
@@ -21,6 +39,7 @@ type P2PMessage =
   | {
       type: 'team_update'
       teamPokemonIds: number[]
+      teamColor?: string
     }
   | {
       type: 'ready_update'
@@ -54,11 +73,11 @@ function getIceServers(): RTCIceServer[] {
     } catch {
       const urls = configured
         .split(',')
-        .map((value) => value.trim())
+        .map((value: string) => value.trim())
         .filter(Boolean)
 
       if (urls.length > 0) {
-        return urls.map((url) => ({ urls: url }))
+        return urls.map((url: string) => ({ urls: url }))
       }
     }
   }
@@ -76,16 +95,21 @@ function normalizeTeam(ids: number[]): number[] {
   )
 }
 
+function sameTeam(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((id, index) => id === b[index])
+}
+
 function makePlayerStates(room: OnlineRoom): Map<string, P2PPlayerState> {
   return new Map(
-    room.players.map((player) => [
+    room.players.map((player, index) => [
       player.id,
       {
         id: player.id,
         name: player.name,
         host: player.host,
         ready: false,
-        teamPokemonIds: [], teamColor: '#1E88E5',
+        teamPokemonIds: [],
+        teamColor: getOnlineTeamColor(index),
       },
     ]),
   )
@@ -162,7 +186,8 @@ export class OnlineP2PHost {
           name: player.name,
           host: player.host,
           ready: false,
-          teamPokemonIds: [], teamColor: '#1E88E5',
+          teamPokemonIds: [],
+          teamColor: getOnlineTeamColor(room.players.findIndex((entry) => entry.id === player.id)),
         })
       }
     }
@@ -184,12 +209,14 @@ export class OnlineP2PHost {
     this.emitSnapshot()
   }
 
-  updateLocalTeam(teamPokemonIds: number[]): void {
+  updateLocalTeam(teamPokemonIds: number[], teamColor?: string): void {
     const player = this.players.get(this.session.playerId)
     if (!player) return
 
-    player.teamPokemonIds = normalizeTeam(teamPokemonIds)
-    player.ready = false
+    const nextTeam = normalizeTeam(teamPokemonIds)
+    if (!sameTeam(player.teamPokemonIds, nextTeam)) player.ready = false
+    player.teamPokemonIds = nextTeam
+    player.teamColor = normalizeTeamColor(teamColor, player.teamColor)
     this.emitSnapshot()
     this.broadcastSnapshot()
   }
@@ -284,7 +311,9 @@ export class OnlineP2PHost {
         playerId,
         'ice-candidate',
         event.candidate.toJSON(),
-      )
+      ).catch((error: unknown) => {
+        this.callbacks.onError(errorFrom(error, 'Não foi possível enviar um candidato ICE.'))
+      })
     }
 
     connection.onconnectionstatechange = () => {
@@ -352,8 +381,10 @@ export class OnlineP2PHost {
       const player = this.players.get(playerId)
       if (!player) return
 
-      player.teamPokemonIds = normalizeTeam(message.teamPokemonIds)
-      player.ready = false
+      const nextTeam = normalizeTeam(message.teamPokemonIds)
+      if (!sameTeam(player.teamPokemonIds, nextTeam)) player.ready = false
+      player.teamPokemonIds = nextTeam
+      player.teamColor = normalizeTeamColor(message.teamColor, player.teamColor)
       this.emitSnapshot()
       this.broadcastSnapshot()
       return
@@ -518,9 +549,9 @@ export class OnlineP2PHost {
     const peer = this.peers.get(playerId)
     if (!peer) return
 
+    this.peers.delete(playerId)
     peer.channel.close()
     peer.connection.close()
-    this.peers.delete(playerId)
     this.callbacks.onConnectionChange(this.hasOpenConnection())
   }
 }
@@ -544,10 +575,11 @@ export class OnlineP2PPeer {
     this.startPolling()
   }
 
-  sendTeam(teamPokemonIds: number[]): void {
+  sendTeam(teamPokemonIds: number[], teamColor?: string): void {
     this.send({
       type: 'team_update',
       teamPokemonIds: normalizeTeam(teamPokemonIds),
+      ...(teamColor ? { teamColor: normalizeTeamColor(teamColor, '#1E88E5') } : {}),
     })
   }
 
@@ -588,30 +620,42 @@ export class OnlineP2PPeer {
       void this.sendSignal(
         'ice-candidate',
         event.candidate.toJSON(),
-      )
+      ).catch((error: unknown) => {
+        this.callbacks.onError(errorFrom(error, 'Não foi possível enviar um candidato ICE.'))
+      })
     }
 
     connection.onconnectionstatechange = () => {
       if (
-        connection.connectionState === 'failed' ||
-        connection.connectionState === 'closed'
+        !this.closed &&
+        this.connection === connection &&
+        (connection.connectionState === 'failed' ||
+          connection.connectionState === 'closed')
       ) {
+        this.connection = null
+        this.channel = null
+        this.pendingCandidates = []
         this.callbacks.onConnectionChange(false)
       }
     }
 
     connection.ondatachannel = (event) => {
-      this.channel = event.channel
-      this.channel.onopen = () => {
-        this.callbacks.onConnectionChange(true)
+      const channel = event.channel
+      this.channel = channel
+      channel.onopen = () => {
+        if (!this.closed && this.channel === channel) {
+          this.callbacks.onConnectionChange(true)
+        }
       }
-      this.channel.onclose = () => {
-        this.callbacks.onConnectionChange(false)
+      channel.onclose = () => {
+        if (this.channel === channel) {
+          this.callbacks.onConnectionChange(false)
+        }
       }
-      this.channel.onerror = () => {
+      channel.onerror = () => {
         this.callbacks.onError(new Error('A conexão com o host falhou.'))
       }
-      this.channel.onmessage = (messageEvent) => {
+      channel.onmessage = (messageEvent) => {
         this.handleMessage(messageEvent.data)
       }
     }
