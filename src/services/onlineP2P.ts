@@ -685,7 +685,6 @@ export class OnlineP2PPeer {
         (connection.connectionState === 'failed' ||
           connection.connectionState === 'closed')
       ) {
-        const channel = this.channel
         this.resetConnection()
         this.nextPollDelay = SIGNAL_POLL_MS
         this.startPolling()
