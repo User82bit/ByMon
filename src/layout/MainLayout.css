@@ -1,7 +1,82 @@
-.layout{min-height:100svh;background:radial-gradient(ellipse at 10% 0%,color-mix(in oklab,var(--team-a) 55%,transparent),transparent 42%),radial-gradient(ellipse at 90% 0%,color-mix(in oklab,var(--team-b) 55%,transparent),transparent 44%),radial-gradient(ellipse at 50% 100%,#2A2160 0%,transparent 58%),#141A33;background-attachment:fixed}
-.topbar{position:sticky;top:0;z-index:30;min-height:64px;display:flex;align-items:center;gap:12px;padding:8px 22px;border-bottom:1px solid rgba(255,255,255,.22);background:rgba(20,26,51,.72);backdrop-filter:blur(28px) saturate(160%);box-shadow:0 10px 32px rgba(6,8,24,.3)}
-.topbar strong{display:flex;align-items:center;gap:11px;color:#F4F6FF;font-family:'Chakra Petch',system-ui,sans-serif;font-size:22px;font-weight:700;letter-spacing:-.02em}
-.topbar strong::before{content:"";width:25px;height:25px;border-radius:50%;background:var(--team-a);box-shadow:11px 0 0 color-mix(in oklab,var(--team-b) 88%,transparent),0 0 18px color-mix(in oklab,var(--team-a) 40%,transparent)}
-.topbar span{color:#AEB6D6;font-size:.82rem}
-.content{width:min(1450px,calc(100% - 28px));margin:auto;padding:14px 0 28px}
-@media(max-width:540px){.topbar{padding-inline:14px}.topbar span{font-size:.76rem}.content{width:min(100% - 18px,1450px);padding-top:10px}}
+.layout {
+  position: relative;
+  isolation: isolate;
+  min-height: 100svh;
+  background: var(--bg);
+}
+.layout::before, .layout::after {
+  content: "";
+  position: fixed;
+  inset: -12%;
+  z-index: -1;
+  pointer-events: none;
+}
+.layout::before {
+  background:
+    radial-gradient(ellipse at 14% 16%, rgba(229, 57, 53, .11), transparent 33%),
+    radial-gradient(ellipse at 88% 18%, rgba(30, 136, 229, .1), transparent 36%),
+    radial-gradient(ellipse at 56% 88%, rgba(82, 163, 119, .11), transparent 42%);
+  transform: translate3d(-.6%, -.4%, 0);
+  animation: bymon-ambient-drift 34s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.layout::after {
+  inset: 0;
+  background-image: radial-gradient(rgba(61, 93, 76, .1) .7px, transparent .9px);
+  background-size: 26px 26px;
+  opacity: .18;
+  mask-image: linear-gradient(to bottom, black, transparent 92%);
+  animation: bymon-grid-drift 48s ease-in-out infinite alternate;
+}
+@keyframes bymon-ambient-drift {
+  from { transform: translate3d(-.6%, -.4%, 0) scale(1); }
+  to { transform: translate3d(.8%, .6%, 0) scale(1.035); }
+}
+@keyframes bymon-grid-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(0, 12px, 0); }
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 22px;
+  border-bottom: 1px solid rgba(70,88,79,.13);
+  background: rgba(255,255,255,.74);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+  backdrop-filter: blur(18px) saturate(125%);
+  box-shadow: 0 8px 26px rgba(40,55,48,.055);
+}
+.topbar strong {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: #26372e;
+  font-family: 'Chakra Petch', system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+}
+.topbar strong::before {
+  content: "";
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: var(--team-a);
+  box-shadow: 11px 0 0 color-mix(in oklab,var(--team-b) 88%,transparent), 0 0 16px color-mix(in oklab,var(--team-a) 17%,transparent);
+}
+.topbar span { color: var(--muted); font-size: .82rem; }
+.content { position: relative; width: min(1450px, calc(100% - 28px)); margin: auto; padding: 14px 0 28px; }
+@media (max-width: 700px) { .layout::after { opacity: .1; background-size: 30px 30px; } }
+@media (max-width: 540px) {
+  .topbar { padding-inline: 14px; }
+  .topbar span { font-size: .76rem; }
+  .content { width: min(100% - 18px, 1450px); padding-top: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .layout::before, .layout::after { animation: none; will-change: auto; }
+}
