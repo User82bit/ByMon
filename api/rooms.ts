@@ -513,7 +513,7 @@ async function pullSignals(
   return json({ signals })
 }
 
-export default async function handler(request: Request): Promise<Response> {
+async function handle(request: Request): Promise<Response> {
   try {
     const redis = await getRedis()
 
@@ -564,3 +564,5 @@ export default async function handler(request: Request): Promise<Response> {
     )
   }
 }
+
+export default { fetch: handle }
