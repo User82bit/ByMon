@@ -38,22 +38,42 @@ export default function App() {
     () => window.localStorage.getItem(PLAYER_NAME_KEY) ?? 'Jogador',
   )
 
+  async function fetchCatalog(): Promise<PokemonSummary[]> {
+    const basic = await getPokemonCatalog()
+    return enrichPokemonTypes(basic)
+  }
+
   async function loadCatalog() {
     setLoading(true)
     setError(null)
 
     try {
-      const basic = await getPokemonCatalog()
-      const enriched = await enrichPokemonTypes(basic)
-      setCatalog(enriched)
-      setLoading(false)
+      setCatalog(await fetchCatalog())
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro desconhecido.')
+    } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { void loadCatalog() }, [])
+  useEffect(() => {
+    let active = true
+
+    fetchCatalog()
+      .then((nextCatalog) => {
+        if (active) setCatalog(nextCatalog)
+      })
+      .catch((e: unknown) => {
+        if (active) setError(e instanceof Error ? e.message : 'Erro desconhecido.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   function updatePlayerName(name: string) {
     setPlayerName(name)
