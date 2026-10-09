@@ -240,7 +240,7 @@ export function OnlineLobby({
     }
 
     void refresh()
-    const timer = window.setInterval(() => void refresh(), 2500)
+    const timer = window.setInterval(() => void refresh(), 5000)
 
     return () => {
       active = false
@@ -320,13 +320,17 @@ export function OnlineLobby({
       return
     }
 
-    if (!isHost && !p2pConnected) {
-      setError('Aguardando conexão direta com o host.')
+    const transport = p2pRef.current
+    if (
+      !isHost &&
+      (!(transport instanceof OnlineP2PPeer) || !transport.isConnected())
+    ) {
+      setP2pConnected(false)
+      setError('A conexão P2P com o host ainda não está pronta. Aguarde a reconexão antes de marcar pronto.')
       return
     }
 
     const nextReady = !me.ready
-    const transport = p2pRef.current
 
     if (isHost && transport instanceof OnlineP2PHost) {
       transport.updateLocalReady(nextReady)
