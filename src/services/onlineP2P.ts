@@ -600,7 +600,7 @@ export class OnlineP2PHost {
   }
 }
 
-export class OnlineP2PPeerexport class OnlineP2PPeer {
+export class OnlineP2PPeer {
   private readonly session: RoomSession
   private readonly callbacks: Callbacks
   private connection: RTCPeerConnection | null = null
