@@ -91,6 +91,7 @@ export function OnlineLobby({
   const [p2pConnected, setP2pConnected] = useState(session.room.players.length < 2)
 
   const p2pRef = useRef<OnlineP2PHost | OnlineP2PPeer | null>(null)
+  const teamRef = useRef(team)
 
   const isHost = session.playerId === session.room.hostId
 
@@ -104,31 +105,35 @@ export function OnlineLobby({
   }, [catalogError])
 
   useEffect(() => {
+    teamRef.current = team
+  }, [team])
+
+  useEffect(() => {
     if (loading) return
     let active = true
 
     try {
       const raw = window.localStorage.getItem(teamStorageKey(session))
-      if (!raw) return
+      if (raw) {
+        const stored = JSON.parse(raw) as unknown
+        const isLegacyList = Array.isArray(stored)
+        const record = stored && typeof stored === 'object' && !isLegacyList
+          ? stored as { pokemonIds?: unknown; color?: unknown }
+          : null
+        const ids = isLegacyList
+          ? stored.filter((id): id is number => Number.isInteger(id))
+          : Array.isArray(record?.pokemonIds)
+            ? record.pokemonIds.filter((id): id is number => Number.isInteger(id))
+            : []
+        const color = typeof record?.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(record.color)
+          ? record.color.toUpperCase()
+          : getOnlineTeamColor(Math.max(0, session.room.players.findIndex((player) => player.id === session.playerId)))
+        const pokemon = ids
+          .map((id) => catalogById.get(id))
+          .filter((entry): entry is PokemonSummary => Boolean(entry))
 
-      const stored = JSON.parse(raw) as unknown
-      const isLegacyList = Array.isArray(stored)
-      const record = stored && typeof stored === 'object' && !isLegacyList
-        ? stored as { pokemonIds?: unknown; color?: unknown }
-        : null
-      const ids = isLegacyList
-        ? stored.filter((id): id is number => Number.isInteger(id))
-        : Array.isArray(record?.pokemonIds)
-          ? record.pokemonIds.filter((id): id is number => Number.isInteger(id))
-          : []
-      const color = typeof record?.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(record.color)
-        ? record.color.toUpperCase()
-        : getOnlineTeamColor(Math.max(0, session.room.players.findIndex((player) => player.id === session.playerId)))
-      const pokemon = ids
-        .map((id) => catalogById.get(id))
-        .filter((entry): entry is PokemonSummary => Boolean(entry))
-
-      if (active) setTeam((current) => ({ ...current, color, pokemon }))
+        if (active) setTeam((current) => ({ ...current, color, pokemon }))
+      }
     } catch {
       window.localStorage.removeItem(teamStorageKey(session))
     } finally {
@@ -292,12 +297,13 @@ export function OnlineLobby({
   useEffect(() => {
     if (!teamLoaded || !p2pConnected) return
 
-    const ids = team.pokemon.map((entry) => entry.id)
+    const currentTeam = teamRef.current
+    const ids = currentTeam.pokemon.map((entry) => entry.id)
     const transport = p2pRef.current
     if (isHost && transport instanceof OnlineP2PHost) {
-      transport.updateLocalTeam(ids, team.color)
+      transport.updateLocalTeam(ids, currentTeam.color)
     } else if (!isHost && transport instanceof OnlineP2PPeer) {
-      transport.sendTeam(ids, team.color)
+      transport.sendTeam(ids, currentTeam.color)
     }
   }, [teamLoaded, p2pConnected, isHost, session])
 
