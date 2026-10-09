@@ -70,3 +70,50 @@
 @media (prefers-reduced-motion: reduce) {
   .battle-card.is-dynamax::before { animation: none; }
 }
+
+.battle-card.is-mega {
+  overflow: hidden;
+  border-color: color-mix(in oklab, #6d63d7 42%, var(--team-color));
+  background:
+    radial-gradient(ellipse at 50% 27%, rgba(113, 101, 222, .13), transparent 50%),
+    linear-gradient(155deg, color-mix(in oklab, var(--team-color) 10%, #fff), rgba(249, 248, 255, .96));
+}
+.battle-card.is-mega::before {
+  content: "";
+  position: absolute;
+  top: 4%;
+  left: 12%;
+  width: 76%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at center, rgba(105, 95, 215, .2), transparent 62%),
+    conic-gradient(from 30deg, transparent, rgba(80, 132, 224, .12), transparent 45%, rgba(166, 93, 220, .15), transparent);
+  pointer-events: none;
+  animation: mega-arena-pulse 4s ease-in-out infinite alternate;
+}
+.battle-card.is-mega > img {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 0 8px rgba(105, 95, 215, .27)) drop-shadow(0 12px 14px rgba(35, 55, 42, .12));
+}
+.variant-chip--mega {
+  border: 1px solid rgba(105, 95, 215, .24);
+  background: rgba(238, 235, 255, .96);
+  color: #5549a7;
+  font-weight: 800;
+}
+.battle-card.is-gmax {
+  border-color: color-mix(in oklab, #de3457 34%, var(--team-color));
+  background: linear-gradient(155deg, color-mix(in oklab, var(--team-color) 12%, rgba(255, 241, 244, .98)), rgba(255, 248, 250, .94));
+}
+.event__pokemon--mega {
+  filter: drop-shadow(0 0 3px rgba(105, 95, 215, .34));
+}
+@keyframes mega-arena-pulse {
+  from { opacity: .52; transform: scale(.94) rotate(-3deg); }
+  to { opacity: .95; transform: scale(1.04) rotate(3deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .battle-card.is-mega::before { animation: none; }
+}
