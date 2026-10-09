@@ -47,7 +47,6 @@ export function Team({ team, index, canRemove, onRename, onChangeColor, onRemove
                 <div className={'team-panel__pokemon' + (pokemon.kind === 'normal' ? '' : ' team-panel__pokemon--' + pokemon.kind)}>
                   <button type="button" className="team-panel__remove-pokemon" onClick={() => onRemovePokemon(team.id, pokemon.id)} aria-label={'Remover ' + formatPokemonName(pokemon.name)}>×</button>
                   <img src={pokemon.imageUrl} alt={formatPokemonName(pokemon.name)} loading="lazy" decoding="async" />
-                  <strong>{formatPokemonName(pokemon.name)}</strong>
                   <div className="team-panel__types">{pokemon.types.map((type) => <TypeBadge key={type} type={type} />)}</div>
                 </div>
               ) : <span>Slot {slotIndex + 1}</span>}
