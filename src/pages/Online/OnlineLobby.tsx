@@ -107,16 +107,7 @@ export function OnlineLobby({
     teamRef.current = team
   }, [team])
 
-  function syncServerPlayerState(ready: boolean, teamSize: number) {
-    // Update the local UI immediately; serialize writes so rapid team edits cannot
-    // leave the server with an older team size or readiness value.
-    setRoom((current) => ({
-      ...current,
-      players: current.players.map((player) => player.id === session.playerId
-        ? { ...player, ready: ready && teamSize > 0, teamSize, lastSeen: Date.now() }
-        : player),
-    }))
-
+  function persistServerPlayerState(ready: boolean, teamSize: number) {
     stateSyncRef.current = stateSyncRef.current
       .catch(() => undefined)
       .then(async () => {
@@ -132,6 +123,17 @@ export function OnlineLobby({
       .catch((e: unknown) => {
         setError(e instanceof Error ? e.message : 'Não foi possível sincronizar o estado do jogador.')
       })
+  }
+
+  function syncServerPlayerState(ready: boolean, teamSize: number) {
+    // Update local UI immediately; persist writes in order to prevent stale state.
+    setRoom((current) => ({
+      ...current,
+      players: current.players.map((player) => player.id === session.playerId
+        ? { ...player, ready: ready && teamSize > 0, teamSize, lastSeen: Date.now() }
+        : player),
+    }))
+    persistServerPlayerState(ready, teamSize)
   }
 
   useEffect(() => {
@@ -330,7 +332,7 @@ export function OnlineLobby({
 
   useEffect(() => {
     if (!teamLoaded) return
-    syncServerPlayerState(false, team.pokemon.length)
+    persistServerPlayerState(false, team.pokemon.length)
     // List identity changes on add/remove/replace, but not on color-only edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamLoaded, team.pokemon, session])
