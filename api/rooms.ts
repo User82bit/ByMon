@@ -66,7 +66,6 @@ type StoredRoom = Omit<OnlineRoom, 'players'> & {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var __bymonRedis: Promise<ReturnType<typeof createClient>> | undefined
 }
 

@@ -1,23 +1,64 @@
-:root{
-  font-family:'Nunito Sans',system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  color:#F4F6FF;background:#141A33;color-scheme:dark;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;
-  --night:#141A33;--twilight:#2A2160;--fog:#F4F6FF;--muted:#AEB6D6;--focus:#FFD65A;--danger:#FF6B6B;
-  --team-a:#E53935;--team-b:#1E88E5;
-  --bg:#141A33;--surface:rgba(255,255,255,.10);--surface-strong:rgba(255,255,255,.14);--surface-soft:rgba(255,255,255,.08);
-  --border:rgba(255,255,255,.22);--border-soft:rgba(255,255,255,.15);--text:#F4F6FF;--muted:#AEB6D6;--accent:#FFD65A;--accent-strong:#FFD65A;--accent-soft:rgba(255,214,90,.12);
-  --danger-soft:rgba(255,107,107,.15);--shadow:0 18px 48px rgba(6,8,24,.45);--shadow-soft:0 14px 36px rgba(6,8,24,.4);
+:root {
+  font-family: 'Nunito Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #26372e;
+  background: #f6f8f7;
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --night: #f6f8f7;
+  --twilight: #e8f1ec;
+  --fog: #26372e;
+  --muted: #64746b;
+  --focus: #277c5b;
+  --danger: #a94343;
+  --team-a: #e53935;
+  --team-b: #1e88e5;
+  --bg: #f6f8f7;
+  --surface: rgba(255, 255, 255, .72);
+  --surface-strong: rgba(255, 255, 255, .9);
+  --surface-soft: rgba(255, 255, 255, .52);
+  --border: rgba(70, 88, 79, .17);
+  --border-soft: rgba(70, 88, 79, .1);
+  --text: #26372e;
+  --muted: #64746b;
+  --accent: #4d8969;
+  --accent-strong: #2e6549;
+  --accent-soft: rgba(89, 140, 111, .13);
+  --danger-soft: rgba(184, 65, 65, .09);
+  --shadow: 0 18px 48px rgba(40, 55, 48, .1);
+  --shadow-soft: 0 10px 28px rgba(40, 55, 48, .08);
 }
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{min-width:320px;margin:0;background:#141A33;color:#F4F6FF}
-button,input{font:inherit}
-button{color:inherit}
-#root{min-height:100svh}
-:focus-visible{outline:2px solid #FFD65A!important;outline-offset:2px}
-.glass-1{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(28px) saturate(160%);box-shadow:0 18px 48px rgba(6,8,24,.45),inset 0 1px 0 rgba(255,255,255,.35)}
-.glass-2{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(24px) saturate(170%);box-shadow:0 14px 36px rgba(6,8,24,.4),inset 0 1px 0 rgba(255,255,255,.35)}
-.glass-3{background:rgba(255,255,255,.20);border:1px solid rgba(255,255,255,.34);backdrop-filter:blur(40px) saturate(180%);box-shadow:0 30px 80px rgba(6,8,24,.6),inset 0 1px 0 rgba(255,255,255,.35)}
-@supports not (backdrop-filter:blur(1px)){.glass-1,.glass-2,.glass-3{background:rgba(30,36,70,.94)}}
-@media(prefers-reduced-transparency:reduce){.glass-1,.glass-2,.glass-3{backdrop-filter:none;background:rgba(30,36,70,.94)}}
-@media(max-width:620px){.glass-1,.glass-2,.glass-3{backdrop-filter:blur(16px) saturate(150%)}}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+* { box-sizing: border-box; }
+html { min-width: 320px; scroll-behavior: smooth; }
+body { min-width: 320px; margin: 0; background: var(--bg); color: var(--text); }
+button, input, select, textarea { font: inherit; }
+button { color: inherit; }
+#root { min-height: 100svh; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.glass-1, .glass-2, .glass-3 {
+  border: 1px solid rgba(255,255,255,.78);
+  background: rgba(255,255,255,.66);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+  backdrop-filter: blur(18px) saturate(125%);
+  box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255,255,255,.85);
+}
+.glass-2 { background: rgba(255,255,255,.76); }
+.glass-3 { background: rgba(255,255,255,.86); }
+@supports not (backdrop-filter: blur(1px)) {
+  .glass-1, .glass-2, .glass-3 { background: rgba(255,255,255,.96); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass-1, .glass-2, .glass-3 { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255,255,255,.96); }
+}
+@media (max-width: 620px) {
+  .glass-1, .glass-2, .glass-3 { -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

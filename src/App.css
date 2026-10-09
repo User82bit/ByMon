@@ -1,4 +1,136 @@
-*{box-sizing:border-box}
-button,input{font:inherit}
-button{color:inherit}
-body{margin:0}
+* { box-sizing: border-box; }
+button, input, select, textarea { font: inherit; }
+button { color: inherit; }
+body { margin: 0; }
+
+/* Light surfaces and readable colors across every screen. */
+.teams-section { border-bottom-color: var(--border-soft); }
+.teams-section header > div:first-child > b,
+.online-page__header b, .online-lobby__header b { color: var(--accent-strong); }
+.teams-section h1, .online-page__header h1, .online-lobby__header h1,
+.online-servers h2, .online-code h2, .online-lobby__card h2, .online-lobby__next h2 { color: var(--text); }
+.teams-section p, .online-page__header p, .online-lobby__header p,
+.online-servers small, .online-code p, .online-lobby__next p, .online-lobby__actions p { color: var(--muted); }
+.teams-section > small { color: #80602e; }
+
+.browser h2 { color: var(--text); }
+.browser > p { color: var(--muted); }
+.filters {
+  border-color: var(--border);
+  background: rgba(255,255,255,.8);
+  box-shadow: 0 12px 30px rgba(40,55,48,.09);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
+  backdrop-filter: blur(16px) saturate(125%);
+}
+.filters button { border-color: rgba(70,88,79,.16); color: #405148; background: rgba(255,255,255,.76); }
+.filters button:hover { border-color: rgba(58,112,81,.32); background: rgba(237,246,240,.94); }
+.filters button.active { color: #fff; border-color: #347b53; background: #347b53; }
+.filters button:disabled { opacity: .38; }
+.error { border-color: rgba(184,65,65,.22); background: rgba(184,65,65,.07); color: #963c3c; }
+.empty { border-color: rgba(70,88,79,.2); background: rgba(255,255,255,.62); color: var(--muted); }
+
+.pokemon-card {
+  border-color: rgba(70,88,79,.13);
+  background: rgba(255,255,255,.76);
+  box-shadow: 0 7px 20px rgba(40,55,48,.075);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 245px;
+}
+.pokemon-card:hover { border-color: rgba(67,125,88,.34); background: rgba(255,255,255,.96); box-shadow: 0 12px 24px rgba(40,55,48,.11); }
+.pokemon-card:focus-visible { outline-color: var(--focus); }
+.pokemon-card__image-wrap img { filter: drop-shadow(0 8px 9px rgba(35,55,42,.12)); }
+.pokemon-card__placeholder { border-color: rgba(70,88,79,.24); color: #758379; }
+.pokemon-card__content strong { color: #2d3c35; }
+
+.team-panel {
+  background: rgba(255,255,255,.78);
+  border-color: color-mix(in oklab,var(--team-color) 34%,rgba(70,88,79,.1));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.88), 0 8px 22px color-mix(in oklab,var(--team-color) 8%,transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
+  backdrop-filter: blur(16px) saturate(125%);
+}
+.team-panel__name, .team-panel__name:hover, .team-panel__name:focus {
+  color: #2b3b32;
+  background: color-mix(in oklab,var(--team-color) 10%,#fff);
+  border-color: color-mix(in oklab,var(--team-color) 30%,rgba(70,88,79,.12));
+}
+.team-panel__count { color: #fff; background: color-mix(in oklab,var(--team-color) 82%,#25362c); border-color: transparent; }
+.team-panel__slot {
+  background: rgba(255,255,255,.7);
+  border-color: color-mix(in oklab,var(--team-color) 24%,rgba(70,88,79,.17));
+  color: #7b8980;
+}
+.team-panel__pokemon, .team-panel__pokemon strong { color: #2d3c35; }
+.team-panel__colors button { border-color: rgba(44,58,49,.25); }
+.team-panel__colors label { border-color: rgba(44,58,49,.22); color: #43564a; }
+.team-panel__colors button.selected { outline-color: #2e6549; }
+.team-color-warning { border-color: rgba(180,126,32,.24); color: #805d1c; background: rgba(255,245,215,.82); }
+
+.team-picker__backdrop, .online-modal__backdrop { background: rgba(35,47,41,.16); }
+.team-picker__panel, .online-modal__panel {
+  border-color: rgba(70,88,79,.15);
+  background: rgba(255,255,255,.88);
+  box-shadow: 0 24px 70px rgba(35,47,41,.13);
+}
+.team-picker__header strong, .team-picker__pokemon span, .online-modal__panel > strong { color: var(--text); }
+.team-picker__header p, .online-modal__panel > p { color: var(--muted); }
+.team-picker__close { color: #43564a; }
+
+.battle { color: var(--text); }
+.battle__header, .battle-result, .log {
+  border-color: var(--border);
+  background: rgba(255,255,255,.78);
+  box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
+  backdrop-filter: blur(16px) saturate(125%);
+}
+.battle h1, .battle h2 { color: var(--text); }
+.battle p { color: var(--muted); }
+.battle-card {
+  border-color: color-mix(in oklab,var(--team-color) 40%,rgba(70,88,79,.12));
+  background: linear-gradient(155deg,color-mix(in oklab,var(--team-color) 12%,rgba(255,255,255,.98)),rgba(255,255,255,.82));
+  box-shadow: 0 14px 32px color-mix(in oklab,var(--team-color) 9%,transparent), inset 0 1px 0 rgba(255,255,255,.95);
+}
+.battle-card > img { filter: drop-shadow(0 12px 14px rgba(35,55,42,.12)); }
+.battle-card > strong, .battle-card small { color: #34473b; }
+.battle-card.is-active { box-shadow: 0 0 0 2px var(--team-color),0 14px 32px color-mix(in oklab,var(--team-color) 13%,transparent),inset 0 1px 0 rgba(255,255,255,.95); }
+.variant-chip { color: #405148; background: rgba(50,94,66,.08); }
+.hp-track { border-color: rgba(70,88,79,.15); background: rgba(220,230,222,.9); box-shadow: inset 0 2px 5px rgba(40,55,48,.08); }
+.battle-vs > b, .battle-vs > span, .battle-vs small { color: #39734f; }
+.battle-vs > strong { color: #314438; }
+.battle-result article { background: color-mix(in oklab,var(--team-color) 12%,rgba(255,255,255,.96)); }
+.event { border-color: rgba(70,88,79,.11); background: rgba(247,250,247,.9); }
+.event-duel { border-color: rgba(170,139,55,.28); }
+.event-faint { border-color: rgba(184,65,65,.25); }
+.defeated-label { color: #a94343; }
+
+.online-page__bar, .online-code, .online-servers, .online-lobby__card, .online-lobby__next {
+  border-color: var(--border);
+  background: rgba(255,255,255,.74);
+  box-shadow: var(--shadow-soft);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
+  backdrop-filter: blur(16px) saturate(125%);
+}
+.online-page__bar label, .online-code__fields, .online-modal__panel label { color: #42564a; }
+.online-page__bar input, .online-code input, .online-modal__panel input, .online-modal__panel select {
+  border-color: var(--border); background: rgba(255,255,255,.84); color: var(--text);
+}
+.online-room { border-color: rgba(70,88,79,.1); background: rgba(249,251,249,.88); }
+.online-room__name { color: #2d3c35; }
+.online-room p, .online-empty { color: var(--muted); }
+.online-lobby__section-header > span { background: rgba(89,140,111,.13); color: #356849; }
+.online-player strong { color: #2d3c35; }
+.online-player > span { color: #356849; }
+.online-lobby__started { border-color: var(--border); background: rgba(255,255,255,.82); box-shadow: var(--shadow-soft); }
+.online-lobby__started strong { color: var(--text); }
+.online-lobby__started p, .online-lobby__started small, .online-lobby__ready p, .online-lobby__status { color: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pokemon-card, .ui-button, .filters button { transition: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .topbar, .filters, .pokemon-card, .team-panel, .battle__header, .battle-result, .log,
+  .online-page__bar, .online-code, .online-servers, .online-lobby__card {
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+}
