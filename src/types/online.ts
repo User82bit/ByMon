@@ -37,6 +37,7 @@ export interface P2PPlayerState {
   host: boolean
   ready: boolean
   teamPokemonIds: number[]
+  teamSize: number
   teamColor: string
 }
 

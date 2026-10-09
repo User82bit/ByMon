@@ -6,6 +6,7 @@ import {
   getOnlineRoom,
   leaveOnlineRoom,
   setOnlineRoomStatus,
+  setOnlinePlayerState,
 } from '../../services/onlineRooms'
 import {
   OnlineP2PHost,
@@ -41,8 +42,9 @@ function initialSnapshot(room: OnlineRoom): P2PSnapshot {
       id: player.id,
       name: player.name,
       host: player.host,
-      ready: false,
+      ready: player.ready,
       teamPokemonIds: [],
+      teamSize: player.teamSize,
       teamColor: getOnlineTeamColor(index),
     })),
   }
@@ -56,16 +58,16 @@ function mergePlayers(
 
   return room.players.map((player, index) => {
     const current = stateById.get(player.id)
-    return (
-      current ?? {
-        id: player.id,
-        name: player.name,
-        host: player.host,
-        ready: false,
-        teamPokemonIds: [],
-        teamColor: getOnlineTeamColor(index),
-      }
-    )
+    return {
+      id: player.id,
+      name: player.name,
+      host: player.host,
+      // The API is authoritative for readiness; P2P enriches the actual team IDs.
+      ready: player.ready,
+      teamPokemonIds: current?.teamPokemonIds ?? [],
+      teamSize: player.teamSize,
+      teamColor: current?.teamColor ?? getOnlineTeamColor(index),
+    }
   })
 }
 
@@ -92,6 +94,7 @@ export function OnlineLobby({
 
   const p2pRef = useRef<OnlineP2PHost | OnlineP2PPeer | null>(null)
   const teamRef = useRef(team)
+  const stateSyncRef = useRef<Promise<void>>(Promise.resolve())
 
   const isHost = session.playerId === session.room.hostId
 
@@ -103,6 +106,36 @@ export function OnlineLobby({
   useEffect(() => {
     teamRef.current = team
   }, [team])
+
+  function persistServerPlayerState(ready: boolean, teamSize: number) {
+    stateSyncRef.current = stateSyncRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const nextRoom = await setOnlinePlayerState(
+          session.room.id,
+          session.playerId,
+          session.sessionToken,
+          ready,
+          teamSize,
+        )
+        setRoom(nextRoom)
+        setError(null)
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : 'Não foi possível sincronizar o estado do jogador.')
+      })
+  }
+
+  function syncServerPlayerState(ready: boolean, teamSize: number) {
+    // Update local UI immediately; persist writes in order to prevent stale state.
+    setRoom((current) => ({
+      ...current,
+      players: current.players.map((player) => player.id === session.playerId
+        ? { ...player, ready: ready && teamSize > 0, teamSize, lastSeen: Date.now() }
+        : player),
+    }))
+    persistServerPlayerState(ready, teamSize)
+  }
 
   useEffect(() => {
     if (loading) return
@@ -270,7 +303,7 @@ export function OnlineLobby({
       return
     }
 
-    if (!isHost && transport instanceof OnlineP2PPeer) {
+    if (!isHost && transport instanceof OnlineP2PPeer && transport.isConnected()) {
       transport.sendTeam(ids, color)
     }
   }
@@ -299,20 +332,27 @@ export function OnlineLobby({
   }
 
   useEffect(() => {
-    if (!teamLoaded || !p2pConnected) return
+    if (!teamLoaded) return
+    persistServerPlayerState(false, team.pokemon.length)
+    // List identity changes on add/remove/replace, but not on color-only edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamLoaded, team.pokemon, session])
+
+  useEffect(() => {
+    if (!teamLoaded) return
 
     const currentTeam = teamRef.current
     const ids = currentTeam.pokemon.map((entry) => entry.id)
     const transport = p2pRef.current
     if (isHost && transport instanceof OnlineP2PHost) {
       transport.updateLocalTeam(ids, currentTeam.color)
-    } else if (!isHost && transport instanceof OnlineP2PPeer) {
+    } else if (!isHost && p2pConnected && transport instanceof OnlineP2PPeer) {
       transport.sendTeam(ids, currentTeam.color)
     }
   }, [teamLoaded, p2pConnected, isHost, session])
 
   function toggleReady() {
-    const me = snapshot.players.find((entry) => entry.id === session.playerId)
+    const me = room.players.find((entry) => entry.id === session.playerId)
     if (!me) return
 
     if (!me.ready && team.pokemon.length === 0) {
@@ -320,24 +360,13 @@ export function OnlineLobby({
       return
     }
 
-    const transport = p2pRef.current
-    if (
-      !isHost &&
-      (!(transport instanceof OnlineP2PPeer) || !transport.isConnected())
-    ) {
-      setP2pConnected(false)
-      setError('A conexão P2P com o host ainda não está pronta. Aguarde a reconexão antes de marcar pronto.')
-      return
-    }
-
     const nextReady = !me.ready
+    syncServerPlayerState(nextReady, team.pokemon.length)
 
+    const transport = p2pRef.current
     if (isHost && transport instanceof OnlineP2PHost) {
       transport.updateLocalReady(nextReady)
-      return
-    }
-
-    if (!isHost && transport instanceof OnlineP2PPeer) {
+    } else if (!isHost && transport instanceof OnlineP2PPeer && transport.isConnected()) {
       transport.sendReady(nextReady)
     }
   }
@@ -363,7 +392,7 @@ export function OnlineLobby({
   const me = players.find((player) => player.id === session.playerId)
   const everyoneReady =
     players.length >= 2 &&
-    players.every((player) => player.ready && player.teamPokemonIds.length > 0)
+    players.every((player) => player.ready && player.teamSize > 0)
   const battleStarted = snapshot.status === 'battle' || room.status === 'battle'
 
   return (
@@ -380,7 +409,7 @@ export function OnlineLobby({
               ? 'Seu navegador é o servidor temporário desta sala.'
               : p2pConnected
                 ? 'Conexão direta com o host estabelecida.'
-                : 'Conectando diretamente ao host...'}
+                : 'Conexão direta pendente; o status do lobby continua sincronizado pelo servidor.'}
           </small>
         </div>
 
@@ -429,10 +458,7 @@ export function OnlineLobby({
                     ? 'Escolha pelo menos 1 Pokémon antes de ficar pronto.'
                     : 'Seu time está pronto para a batalha.'}
               </p>
-              <Button
-                disabled={!isHost && !p2pConnected}
-                onClick={toggleReady}
-              >
+              <Button onClick={toggleReady}>
                 {me?.ready ? 'Cancelar pronto' : 'Estou pronto'}
               </Button>
             </div>
@@ -467,8 +493,8 @@ export function OnlineLobby({
                       : player.ready
                         ? 'Pronto'
                         : 'Montando time'}
-                    {player.teamPokemonIds.length > 0
-                      ? ' · ' + player.teamPokemonIds.length + '/6'
+                    {player.teamSize > 0
+                      ? ' · ' + player.teamSize + '/6'
                       : ''}
                   </small>
                 </div>
@@ -481,7 +507,7 @@ export function OnlineLobby({
               {players.length < 2
                 ? 'Aguardando outro jogador.'
                 : !p2pConnected && !isHost
-                  ? 'Aguardando a conexão direta com o host.'
+                  ? 'A conexão direta ainda não está disponível; você pode marcar pronto normalmente.'
                   : everyoneReady
                     ? 'Todos estão prontos. O host está iniciando a partida...'
                     : 'Cada jogador monta seu próprio time e marca-se como pronto.'}

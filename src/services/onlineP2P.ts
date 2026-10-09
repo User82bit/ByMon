@@ -124,8 +124,9 @@ function makePlayerStates(room: OnlineRoom): Map<string, P2PPlayerState> {
         id: player.id,
         name: player.name,
         host: player.host,
-        ready: false,
+        ready: player.ready,
         teamPokemonIds: [],
+        teamSize: player.teamSize,
         teamColor: getOnlineTeamColor(index),
       },
     ]),
@@ -197,13 +198,16 @@ export class OnlineP2PHost {
       if (current) {
         current.name = player.name
         current.host = player.host
+        current.ready = player.ready
+        current.teamSize = player.teamSize
       } else {
         this.players.set(player.id, {
           id: player.id,
           name: player.name,
           host: player.host,
-          ready: false,
+          ready: player.ready,
           teamPokemonIds: [],
+          teamSize: player.teamSize,
           teamColor: getOnlineTeamColor(room.players.findIndex((entry) => entry.id === player.id)),
         })
       }
@@ -225,6 +229,15 @@ export class OnlineP2PHost {
       }
     }
 
+    if (this.status !== 'battle' && this.shouldStartBattle()) {
+      this.status = 'battle'
+      const snapshot = this.getSnapshot()
+      this.emitSnapshot()
+      this.broadcast({ type: 'battle_start', snapshot })
+      this.callbacks.onBattleStart?.(snapshot)
+      return
+    }
+
     this.emitSnapshot()
   }
 
@@ -235,6 +248,7 @@ export class OnlineP2PHost {
     const nextTeam = normalizeTeam(teamPokemonIds)
     if (!sameTeam(player.teamPokemonIds, nextTeam)) player.ready = false
     player.teamPokemonIds = nextTeam
+    player.teamSize = nextTeam.length
     player.teamColor = normalizeTeamColor(teamColor, player.teamColor)
     this.emitSnapshot()
     this.broadcastSnapshot()
@@ -293,7 +307,7 @@ export class OnlineP2PHost {
     return (
       players.length >= 2 &&
       players.every(
-        (player) => player.ready && player.teamPokemonIds.length > 0,
+        (player) => player.ready && player.teamSize > 0,
       )
     )
   }
@@ -415,6 +429,7 @@ export class OnlineP2PHost {
       const nextTeam = normalizeTeam(message.teamPokemonIds)
       if (!sameTeam(player.teamPokemonIds, nextTeam)) player.ready = false
       player.teamPokemonIds = nextTeam
+      player.teamSize = nextTeam.length
       player.teamColor = normalizeTeamColor(message.teamColor, player.teamColor)
       this.emitSnapshot()
       this.broadcastSnapshot()
