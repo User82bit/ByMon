@@ -112,7 +112,11 @@ async function loadCatalog(): Promise<PokemonSummary[]> {
     .map((entry) => {
       const id = parseId(entry.url)
 
-      const kind: PokemonSummary['kind'] = entry.name.endsWith('-gmax') ? 'gmax' : 'normal'
+      const kind: PokemonSummary['kind'] = entry.name.endsWith('-gmax')
+        ? 'gmax'
+        : entry.name.includes('-mega')
+          ? 'mega'
+          : 'normal'
 
       return {
         id,
@@ -189,14 +193,19 @@ export async function enrichPokemonTypes(catalog: PokemonSummary[]): Promise<Pok
 
   const enriched = Array.from(byId.values()).sort(sortCatalog)
   const baseSpecies = enriched.filter((pokemon) => pokemon.id < 10000 && pokemon.kind === 'normal')
+  const gigantamaxArtwork = new Map(
+    enriched
+      .filter((pokemon) => pokemon.kind === 'gmax')
+      .map((pokemon) => [pokemon.name.replace(/-gmax$/, ''), pokemon.imageUrl]),
+  )
   const dynamax = baseSpecies.map((pokemon) => ({
     ...pokemon,
     id: 200000 + pokemon.id,
     baseId: pokemon.id,
     name: pokemon.name + '-dynamax',
-    // Dynamax preserves the Pokémon's model; the UI adds the Dynamax aura and scale.
-    // Always use the real species ID for the artwork, not the synthetic catalog ID.
-    imageUrl: artworkUrl(pokemon.id),
+    // Use the actual Gigantamax artwork where that species has a distinct form.
+    // Other Dynamax Pokémon retain their official species art and use the aura effect.
+    imageUrl: gigantamaxArtwork.get(pokemon.name) ?? pokemon.imageUrl,
     kind: 'dynamax' as const,
   }))
   return enriched.concat(dynamax)
@@ -228,8 +237,9 @@ export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<Pok
         types: data.types
           .sort((a, b) => a.slot - b.slot)
           .map((entry) => entry.type.name as PokemonTypeName),
-        imageUrl:
-          data.sprites.other?.['official-artwork']?.front_default ?? artworkUrl(requestId),
+        // Keep the selected form's artwork. Dynamax may use its species' Gigantamax art,
+        // while battle stats and moves still come from the base species.
+        imageUrl: pokemon.imageUrl || data.sprites.other?.['official-artwork']?.front_default || artworkUrl(requestId),
         stats: {
           hp: findStat('hp'),
           attack: findStat('attack'),

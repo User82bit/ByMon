@@ -14,7 +14,7 @@ export interface PokemonStats {
   speed: number
 }
 
-export type PokemonKind = 'normal' | 'gmax' | 'dynamax'
+export type PokemonKind = 'normal' | 'gmax' | 'dynamax' | 'mega'
 
 export interface PokemonSummary {
   id: number

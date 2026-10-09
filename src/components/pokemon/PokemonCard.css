@@ -48,3 +48,47 @@
 @media (prefers-reduced-motion: reduce) {
   .pokemon-card--dynamax .pokemon-card__image-wrap::before { animation: none; }
 }
+
+/* Mega Evolutions have their own artwork and a violet-blue accent. */
+.pokemon-card--mega {
+  border-color: rgba(105, 95, 215, .36);
+  background: linear-gradient(155deg, rgba(242, 241, 255, .95), rgba(255, 255, 255, .82));
+}
+.pokemon-card--mega .pokemon-card__image-wrap::before {
+  content: "";
+  position: absolute;
+  width: 76%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 50% 62%, rgba(118, 101, 225, .25), transparent 62%),
+    conic-gradient(from 35deg, transparent 0 12%, rgba(92, 113, 225, .16) 16%, transparent 24% 49%, rgba(183, 98, 220, .17) 56%, transparent 65% 100%);
+  filter: blur(2px);
+  animation: mega-energy-pulse 4.4s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+.pokemon-card--mega .pokemon-card__image-wrap img {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 0 5px rgba(105, 95, 215, .24)) drop-shadow(0 9px 10px rgba(50, 34, 55, .14));
+}
+.pokemon-card__variant--mega {
+  border-color: rgba(105, 95, 215, .24);
+  background: rgba(238, 235, 255, .92);
+  color: #5549a7;
+}
+.pokemon-card--gmax {
+  border-color: rgba(224, 55, 89, .36);
+}
+.pokemon-card__variant--gmax {
+  border-color: rgba(204, 49, 77, .18);
+  background: rgba(255, 232, 237, .92);
+  color: #a62e4b;
+}
+@keyframes mega-energy-pulse {
+  from { opacity: .56; transform: scale(.94) rotate(-3deg); }
+  to { opacity: .96; transform: scale(1.04) rotate(3deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pokemon-card--mega .pokemon-card__image-wrap::before { animation: none; }
+}
