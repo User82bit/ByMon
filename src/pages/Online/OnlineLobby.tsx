@@ -10,6 +10,7 @@ import {
 import {
   OnlineP2PHost,
   OnlineP2PPeer,
+  getOnlineTeamColor,
 } from '../../services/onlineP2P'
 import type { PokemonSummary, Team as TeamModel } from '../../types/pokemon'
 import type {
@@ -36,12 +37,13 @@ function teamStorageKey(session: RoomSession): string {
 function initialSnapshot(room: OnlineRoom): P2PSnapshot {
   return {
     status: room.status,
-    players: room.players.map((player) => ({
+    players: room.players.map((player, index) => ({
       id: player.id,
       name: player.name,
       host: player.host,
       ready: false,
       teamPokemonIds: [],
+      teamColor: getOnlineTeamColor(index),
     })),
   }
 }
@@ -52,7 +54,7 @@ function mergePlayers(
 ): P2PPlayerState[] {
   const stateById = new Map(snapshotPlayers.map((player) => [player.id, player]))
 
-  return room.players.map((player) => {
+  return room.players.map((player, index) => {
     const current = stateById.get(player.id)
     return (
       current ?? {
@@ -61,6 +63,7 @@ function mergePlayers(
         host: player.host,
         ready: false,
         teamPokemonIds: [],
+        teamColor: getOnlineTeamColor(index),
       }
     )
   })
@@ -79,8 +82,10 @@ export function OnlineLobby({
   const [team, setTeam] = useState<TeamModel>({
     id: 'online-team',
     name: 'Meu time',
+    color: getOnlineTeamColor(Math.max(0, session.room.players.findIndex((player) => player.id === session.playerId))),
     pokemon: [],
   })
+  const [teamLoaded, setTeamLoaded] = useState(false)
   const [error, setError] = useState<string | null>(catalogError)
   const [leaving, setLeaving] = useState(false)
   const [p2pConnected, setP2pConnected] = useState(session.room.players.length < 2)
@@ -99,20 +104,41 @@ export function OnlineLobby({
   }, [catalogError])
 
   useEffect(() => {
-    const raw = window.localStorage.getItem(teamStorageKey(session))
-    if (!raw) return
+    if (loading) return
+    let active = true
 
     try {
-      const ids = JSON.parse(raw) as number[]
+      const raw = window.localStorage.getItem(teamStorageKey(session))
+      if (!raw) return
+
+      const stored = JSON.parse(raw) as unknown
+      const isLegacyList = Array.isArray(stored)
+      const record = stored && typeof stored === 'object' && !isLegacyList
+        ? stored as { pokemonIds?: unknown; color?: unknown }
+        : null
+      const ids = isLegacyList
+        ? stored.filter((id): id is number => Number.isInteger(id))
+        : Array.isArray(record?.pokemonIds)
+          ? record.pokemonIds.filter((id): id is number => Number.isInteger(id))
+          : []
+      const color = typeof record?.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(record.color)
+        ? record.color.toUpperCase()
+        : getOnlineTeamColor(Math.max(0, session.room.players.findIndex((player) => player.id === session.playerId)))
       const pokemon = ids
         .map((id) => catalogById.get(id))
         .filter((entry): entry is PokemonSummary => Boolean(entry))
 
-      setTeam((current) => ({ ...current, pokemon }))
+      if (active) setTeam((current) => ({ ...current, color, pokemon }))
     } catch {
       window.localStorage.removeItem(teamStorageKey(session))
+    } finally {
+      if (active) setTeamLoaded(true)
     }
-  }, [catalogById, session])
+
+    return () => {
+      active = false
+    }
+  }, [catalogById, loading, session])
 
   useEffect(() => {
     let active = true
@@ -121,7 +147,6 @@ export function OnlineLobby({
       onSnapshot(next: P2PSnapshot) {
         if (!active) return
         setSnapshot(next)
-        setP2pConnected(true)
         setError(null)
       },
       onConnectionChange(connected: boolean) {
@@ -214,27 +239,36 @@ export function OnlineLobby({
     }
   }, [isHost, session])
 
-  function persistLocalTeam(pokemon: PokemonSummary[]) {
+  function persistLocalTeam(pokemon: PokemonSummary[], color: string) {
     window.localStorage.setItem(
       teamStorageKey(session),
-      JSON.stringify(pokemon.map((entry) => entry.id)),
+      JSON.stringify({
+        pokemonIds: pokemon.map((entry) => entry.id),
+        color,
+      }),
     )
   }
 
-  function syncTeam(pokemon: PokemonSummary[]) {
-    persistLocalTeam(pokemon)
+  function syncTeam(pokemon: PokemonSummary[], color = team.color) {
+    persistLocalTeam(pokemon, color)
 
     const transport = p2pRef.current
     if (!transport) return
 
+    const ids = pokemon.map((entry) => entry.id)
     if (isHost && transport instanceof OnlineP2PHost) {
-      transport.updateLocalTeam(pokemon.map((entry) => entry.id))
+      transport.updateLocalTeam(ids, color)
       return
     }
 
     if (!isHost && transport instanceof OnlineP2PPeer) {
-      transport.sendTeam(pokemon.map((entry) => entry.id))
+      transport.sendTeam(ids, color)
     }
+  }
+
+  function changeTeamColor(_: string, color: string) {
+    setTeam((current) => ({ ...current, color }))
+    syncTeam(team.pokemon, color)
   }
 
   function addPokemon(pokemon: PokemonSummary) {
@@ -254,6 +288,18 @@ export function OnlineLobby({
   function renameTeam(_: string, name: string) {
     setTeam((current) => ({ ...current, name: name || 'Meu time' }))
   }
+
+  useEffect(() => {
+    if (!teamLoaded || !p2pConnected) return
+
+    const ids = team.pokemon.map((entry) => entry.id)
+    const transport = p2pRef.current
+    if (isHost && transport instanceof OnlineP2PHost) {
+      transport.updateLocalTeam(ids, team.color)
+    } else if (!isHost && transport instanceof OnlineP2PPeer) {
+      transport.sendTeam(ids, team.color)
+    }
+  }, [teamLoaded, p2pConnected, isHost, session])
 
   function toggleReady() {
     const me = snapshot.players.find((entry) => entry.id === session.playerId)
@@ -355,6 +401,7 @@ export function OnlineLobby({
               index={0}
               canRemove={false}
               onRename={renameTeam}
+              onChangeColor={changeTeamColor}
               onRemove={() => undefined}
               onDropPokemon={(_, pokemon) => addPokemon(pokemon)}
               onRemovePokemon={(_, pokemonId) => removePokemon(pokemonId)}
