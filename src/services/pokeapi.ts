@@ -117,7 +117,7 @@ async function loadCatalog(): Promise<PokemonSummary[]> {
         name: entry.name,
         types: [],
         imageUrl: artworkUrl(id),
-        kind: entry.name.endsWith('-gmax') ? 'gmax' : 'normal',
+        kind: (entry.name.endsWith('-gmax') ? 'gmax' : 'normal') as const,
       }
     })
     .filter((pokemon) => pokemon.id > 0)
