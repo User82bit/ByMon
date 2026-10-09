@@ -127,6 +127,28 @@ export async function setOnlineRoomStatus(
   return data.room
 }
 
+export async function setOnlinePlayerState(
+  roomId: string,
+  playerId: string,
+  sessionToken: string,
+  ready: boolean,
+  teamSize: number,
+): Promise<OnlineRoom> {
+  const data = await request<{ room: OnlineRoom }>({
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'player-state',
+      roomId,
+      playerId,
+      sessionToken,
+      ready,
+      teamSize,
+    }),
+  })
+
+  return data.room
+}
+
 export async function leaveOnlineRoom(
   roomId: string,
   playerId: string,

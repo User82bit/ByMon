@@ -30,11 +30,13 @@ interface JoinBody {
 }
 
 interface PlayerBody {
-  action: 'heartbeat' | 'leave' | 'status'
+  action: 'heartbeat' | 'leave' | 'status' | 'player-state'
   roomId: string
   playerId: string
   sessionToken: string
   status?: OnlineRoomStatus
+  ready?: boolean
+  teamSize?: number
 }
 
 interface SignalSendBody {
@@ -161,12 +163,12 @@ function publicRoom(room: StoredRoom): OnlineRoom {
     maxPlayers: room.maxPlayers,
     private: room.private,
     status: room.status,
-    players: room.players.map(({ id, name, host, lastSeen }) => ({
+    players: room.players.map(({ id, name, host, ready, teamSize, lastSeen }) => ({
       id,
       name,
       host,
-      ready: false,
-      teamSize: 0,
+      ready: Boolean(ready),
+      teamSize: Math.max(0, Math.min(6, Number(teamSize) || 0)),
       lastSeen,
     })),
     createdAt: room.createdAt,
@@ -266,6 +268,8 @@ async function createRoom(
     id: playerId,
     name: playerName,
     host: true,
+    ready: false,
+    teamSize: 0,
     sessionToken,
     lastSeen: now,
   }
@@ -341,6 +345,8 @@ async function joinRoom(
     id: playerId,
     name: cleanName(body.playerName, 'Jogador', 20),
     host: false,
+    ready: false,
+    teamSize: 0,
     sessionToken,
     lastSeen: Date.now(),
   })
@@ -434,7 +440,19 @@ async function updatePlayer(
     return json({ error: 'Sala ou sessão inválida.' }, 403)
   }
 
-  const { room } = authenticated
+  const { room, player } = authenticated
+
+  if (body.action === 'player-state') {
+    const requestedTeamSize = Number(body.teamSize)
+    player.teamSize = Number.isFinite(requestedTeamSize)
+      ? Math.max(0, Math.min(6, Math.floor(requestedTeamSize)))
+      : 0
+    player.ready = Boolean(body.ready) && player.teamSize > 0
+    player.lastSeen = Date.now()
+
+    await redis.set(roomKey(room.id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
+    return json({ room: publicRoom(room) })
+  }
 
   if (body.action === 'status') {
     if (body.playerId !== room.hostId) {
@@ -581,7 +599,8 @@ async function handle(request: Request): Promise<Response> {
       if (
         body.action === 'heartbeat' ||
         body.action === 'leave' ||
-        body.action === 'status'
+        body.action === 'status' ||
+        body.action === 'player-state'
       ) {
         return updatePlayer(redis, body)
       }
