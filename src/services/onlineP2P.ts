@@ -480,6 +480,10 @@ export class OnlineP2PHost {
         }
       }
     } catch (error) {
+      this.nextPollDelay = Math.min(
+        SIGNAL_POLL_MAX_MS,
+        Math.round(this.nextPollDelay * 1.5),
+      )
       if (!this.closed) {
         this.callbacks.onError(
           error instanceof Error
@@ -745,6 +749,10 @@ export class OnlineP2PPeer {
         }
       }
     } catch (error) {
+      this.nextPollDelay = Math.min(
+        SIGNAL_POLL_MAX_MS,
+        Math.round(this.nextPollDelay * 1.5),
+      )
       if (!this.closed) {
         this.callbacks.onError(
           error instanceof Error
