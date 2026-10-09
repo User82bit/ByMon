@@ -112,12 +112,14 @@ async function loadCatalog(): Promise<PokemonSummary[]> {
     .map((entry) => {
       const id = parseId(entry.url)
 
+      const kind: PokemonSummary['kind'] = entry.name.endsWith('-gmax') ? 'gmax' : 'normal'
+
       return {
         id,
         name: entry.name,
         types: [],
         imageUrl: artworkUrl(id),
-        kind: (entry.name.endsWith('-gmax') ? 'gmax' : 'normal') as const,
+        kind,
       }
     })
     .filter((pokemon) => pokemon.id > 0)
