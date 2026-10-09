@@ -14,7 +14,7 @@ export interface PokemonStats {
   speed: number
 }
 
-export type PokemonKind = 'normal' | 'gmax' | 'dynamax' | 'mega'
+export type PokemonKind = 'normal' | 'gmax' | 'mega'
 
 export interface PokemonSummary {
   id: number
@@ -22,7 +22,6 @@ export interface PokemonSummary {
   types: PokemonTypeName[]
   imageUrl: string
   kind: PokemonKind
-  baseId?: number
 }
 
 export interface PokemonBattleData extends PokemonSummary {
