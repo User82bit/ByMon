@@ -300,7 +300,7 @@ export function OnlineLobby({
       return
     }
 
-    if (!isHost && transport instanceof OnlineP2PPeer) {
+    if (!isHost && transport instanceof OnlineP2PPeer && transport.isConnected()) {
       transport.sendTeam(ids, color)
     }
   }
@@ -349,7 +349,7 @@ export function OnlineLobby({
   }, [teamLoaded, p2pConnected, isHost, session])
 
   function toggleReady() {
-    const me = playersForReady.find((entry) => entry.id === session.playerId)
+    const me = room.players.find((entry) => entry.id === session.playerId)
     if (!me) return
 
     if (!me.ready && team.pokemon.length === 0) {
@@ -386,7 +386,6 @@ export function OnlineLobby({
   }
 
   const players = mergePlayers(room, snapshot.players)
-  const playersForReady = players
   const me = players.find((player) => player.id === session.playerId)
   const everyoneReady =
     players.length >= 2 &&
