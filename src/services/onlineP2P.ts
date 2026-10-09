@@ -95,6 +95,10 @@ function normalizeTeam(ids: number[]): number[] {
   )
 }
 
+function sameTeam(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((id, index) => id === b[index])
+}
+
 function makePlayerStates(room: OnlineRoom): Map<string, P2PPlayerState> {
   return new Map(
     room.players.map((player, index) => [
@@ -209,9 +213,10 @@ export class OnlineP2PHost {
     const player = this.players.get(this.session.playerId)
     if (!player) return
 
-    player.teamPokemonIds = normalizeTeam(teamPokemonIds)
+    const nextTeam = normalizeTeam(teamPokemonIds)
+    if (!sameTeam(player.teamPokemonIds, nextTeam)) player.ready = false
+    player.teamPokemonIds = nextTeam
     player.teamColor = normalizeTeamColor(teamColor, player.teamColor)
-    player.ready = false
     this.emitSnapshot()
     this.broadcastSnapshot()
   }
@@ -376,9 +381,10 @@ export class OnlineP2PHost {
       const player = this.players.get(playerId)
       if (!player) return
 
-      player.teamPokemonIds = normalizeTeam(message.teamPokemonIds)
+      const nextTeam = normalizeTeam(message.teamPokemonIds)
+      if (!sameTeam(player.teamPokemonIds, nextTeam)) player.ready = false
+      player.teamPokemonIds = nextTeam
       player.teamColor = normalizeTeamColor(message.teamColor, player.teamColor)
-      player.ready = false
       this.emitSnapshot()
       this.broadcastSnapshot()
       return
