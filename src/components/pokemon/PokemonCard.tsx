@@ -16,17 +16,14 @@ export function PokemonCard({ pokemon, onSelect }: Props) {
     setImageStatus((current) => Math.min(current + 1, 2))
   }
 
-  const isDynamax = pokemon.kind === 'dynamax'
   const isMega = pokemon.kind === 'mega'
   const isGmax = pokemon.kind === 'gmax'
-  const fallbackId = pokemon.baseId ?? pokemon.id
-  const variantClass = isDynamax
-    ? ' pokemon-card--dynamax'
-    : isMega
-      ? ' pokemon-card--mega'
-      : isGmax
-        ? ' pokemon-card--gmax'
-        : ''
+  const fallbackId = pokemon.id
+  const variantClass = isMega
+    ? ' pokemon-card--mega'
+    : isGmax
+      ? ' pokemon-card--gmax'
+      : ''
 
   function handleDragStart(event: DragEvent<HTMLDivElement>) {
     event.dataTransfer.setData('application/x-bymon-pokemon', JSON.stringify(pokemon))
@@ -67,7 +64,6 @@ export function PokemonCard({ pokemon, onSelect }: Props) {
       </div>
       <div className="pokemon-card__content">
         <strong>{formatPokemonName(pokemon.name)}</strong>
-        {isDynamax && <span className="pokemon-card__variant">DYNAMAX</span>}
         {isMega && <span className="pokemon-card__variant pokemon-card__variant--mega">MEGA EVOLUÇÃO</span>}
         {isGmax && <span className="pokemon-card__variant pokemon-card__variant--gmax">GIGANTAMAX</span>}
         <div className="pokemon-card__types">

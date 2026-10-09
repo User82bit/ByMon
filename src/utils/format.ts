@@ -20,10 +20,6 @@ export function formatPokemonName(name: string): string {
     return formatPokemonName(name.slice(0, -5)) + ' Gigantamax'
   }
 
-  if (name.endsWith('-dynamax')) {
-    return formatPokemonName(name.slice(0, -8)) + ' Dynamax'
-  }
-
   if (DISPLAY_NAME_OVERRIDES[name]) return DISPLAY_NAME_OVERRIDES[name]
   return name
     .split('-')
