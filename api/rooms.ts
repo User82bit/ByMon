@@ -500,7 +500,7 @@ async function pullSignals(
   const key = signalKey(body.roomId, body.playerId)
   // LPOP com contagem remove apenas os sinais lidos numa operação atômica.
   // LRANGE seguido de DEL poderia apagar sinais recebidos entre as duas chamadas.
-  const rawSignals = await redis.lPop(key, 64)
+  const rawSignals = await redis.lPopCount(key, 64)
   const signals = (rawSignals ?? [])
     .map((entry) => {
       try {
