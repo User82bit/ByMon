@@ -119,6 +119,7 @@ export function OnlineLobby({
           teamSize,
         )
         setRoom(nextRoom)
+        setError(null)
       })
       .catch((e: unknown) => {
         setError(e instanceof Error ? e.message : 'Não foi possível sincronizar o estado do jogador.')
@@ -408,7 +409,7 @@ export function OnlineLobby({
               ? 'Seu navegador é o servidor temporário desta sala.'
               : p2pConnected
                 ? 'Conexão direta com o host estabelecida.'
-                : 'Conectando diretamente ao host...'}
+                : 'Conexão direta pendente; o status do lobby continua sincronizado pelo servidor.'}
           </small>
         </div>
 
@@ -506,7 +507,7 @@ export function OnlineLobby({
               {players.length < 2
                 ? 'Aguardando outro jogador.'
                 : !p2pConnected && !isHost
-                  ? 'Aguardando a conexão direta com o host.'
+                  ? 'A conexão direta ainda não está disponível; você pode marcar pronto normalmente.'
                   : everyoneReady
                     ? 'Todos estão prontos. O host está iniciando a partida...'
                     : 'Cada jogador monta seu próprio time e marca-se como pronto.'}
