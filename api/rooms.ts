@@ -381,11 +381,14 @@ async function getAuthenticatedRoomPlayer(
 
   // Presence updates are isolated per player. Polling no longer rewrites the
   // entire room document, which could overwrite a concurrent join or status update.
-  await redis.set(
-    presenceKey(roomId, playerId),
-    String(now),
-    { EX: PLAYER_PRESENCE_TTL_SECONDS },
-  )
+  await redis.multi()
+    .set(
+      presenceKey(roomId, playerId),
+      String(now),
+      { EX: PLAYER_PRESENCE_TTL_SECONDS },
+    )
+    .expire(roomKey(roomId), ROOM_TTL_SECONDS)
+    .exec()
 
   const room = await pruneRoom(redis, storedRoom, now)
   if (!hostIsActive(room)) {
