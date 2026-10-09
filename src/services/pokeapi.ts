@@ -189,7 +189,16 @@ export async function enrichPokemonTypes(catalog: PokemonSummary[]): Promise<Pok
 
   const enriched = Array.from(byId.values()).sort(sortCatalog)
   const baseSpecies = enriched.filter((pokemon) => pokemon.id < 10000 && pokemon.kind === 'normal')
-  const dynamax = baseSpecies.map((pokemon) => ({ ...pokemon, id: 200000 + pokemon.id, baseId: pokemon.id, name: pokemon.name + '-dynamax', kind: 'dynamax' as const }))
+  const dynamax = baseSpecies.map((pokemon) => ({
+    ...pokemon,
+    id: 200000 + pokemon.id,
+    baseId: pokemon.id,
+    name: pokemon.name + '-dynamax',
+    // Dynamax preserves the Pokémon's model; the UI adds the Dynamax aura and scale.
+    // Always use the real species ID for the artwork, not the synthetic catalog ID.
+    imageUrl: artworkUrl(pokemon.id),
+    kind: 'dynamax' as const,
+  }))
   return enriched.concat(dynamax)
 }
 
