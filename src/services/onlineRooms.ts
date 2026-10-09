@@ -33,7 +33,7 @@ async function request<T>(input: RequestInit = {}, query = ''): Promise<T> {
     return data
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error('O servidor online não respondeu.')
+      throw new Error('O servidor online não respondeu.', { cause: error })
     }
     throw error
   } finally {
