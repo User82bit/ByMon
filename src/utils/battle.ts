@@ -2,7 +2,7 @@ import { formatEffectiveness, getTypeEffectiveness } from '../data/typeChart'
 import type { BattleActor, BattleEvent, BattleFighter, BattleMove, BattleResult, PokemonBattleData, PokemonTypeName, Team } from '../types/pokemon'
 
 export const USE_LEVEL_50_STATS = true
-export const VARIANT_MULTIPLIERS = { normal: 1, mega: 1, gmax: 1.5, dynamax: 2 } as const
+export const VARIANT_MULTIPLIERS = { normal: 1, mega: 1, gmax: 1.5 } as const
 const LEVEL = 50
 const MOVE_CACHE = new Map<string, Promise<MoveData>>()
 const API_BASE = '/api/pokeapi?path='

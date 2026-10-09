@@ -6,49 +6,6 @@
 .pokemon-card__placeholder{display:grid;place-items:center;width:92px;height:92px;border:1px dashed rgba(255,255,255,.28);border-radius:50%;color:#AEB6D6;font-size:32px}
 .pokemon-card__content{display:flex;flex-direction:column;gap:8px;padding:8px 11px 12px}.pokemon-card__content strong{color:#F4F6FF;font-size:.92rem;overflow-wrap:anywhere}.pokemon-card__types{display:flex;flex-wrap:wrap;gap:5px}
 
-/* Dynamax: mesma anatomia da espécie, escala maior e energia ao redor. */
-.pokemon-card--dynamax {
-  border-color: rgba(224, 55, 89, .36);
-  background: linear-gradient(155deg, rgba(255, 239, 243, .96), rgba(255, 255, 255, .8));
-}
-.pokemon-card--dynamax .pokemon-card__image-wrap::before {
-  content: "";
-  position: absolute;
-  width: 76%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background:
-    radial-gradient(ellipse at 50% 62%, rgba(240, 76, 100, .24), transparent 62%),
-    conic-gradient(from 35deg, transparent 0 12%, rgba(229, 57, 85, .18) 16%, transparent 24% 49%, rgba(106, 93, 231, .14) 56%, transparent 65% 100%);
-  filter: blur(2px);
-  animation: dynamax-energy-pulse 3.8s ease-in-out infinite alternate;
-  pointer-events: none;
-}
-.pokemon-card--dynamax .pokemon-card__image-wrap img {
-  position: relative;
-  z-index: 1;
-  transform: scale(1.1);
-  filter: drop-shadow(0 0 5px rgba(220, 45, 75, .24)) drop-shadow(0 9px 10px rgba(50, 34, 55, .16));
-}
-.pokemon-card__variant {
-  align-self: flex-start;
-  padding: 2px 7px;
-  border: 1px solid rgba(204, 49, 77, .18);
-  border-radius: 999px;
-  background: rgba(255, 232, 237, .92);
-  color: #a62e4b;
-  font-size: .58rem;
-  font-weight: 900;
-  letter-spacing: .09em;
-}
-@keyframes dynamax-energy-pulse {
-  from { opacity: .58; transform: scale(.94) rotate(-4deg); }
-  to { opacity: 1; transform: scale(1.04) rotate(4deg); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .pokemon-card--dynamax .pokemon-card__image-wrap::before { animation: none; }
-}
-
 /* Mega Evolutions have their own artwork and a violet-blue accent. */
 .pokemon-card--mega {
   border-color: rgba(105, 95, 215, .36);
@@ -79,6 +36,33 @@
 }
 .pokemon-card--gmax {
   border-color: rgba(224, 55, 89, .36);
+  background: linear-gradient(155deg, rgba(255, 239, 243, .96), rgba(255, 255, 255, .8));
+}
+.pokemon-card--gmax .pokemon-card__image-wrap::before {
+  content: "";
+  position: absolute;
+  width: 76%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 50% 62%, rgba(240, 76, 100, .24), transparent 62%),
+    conic-gradient(from 35deg, transparent 0 12%, rgba(229, 57, 85, .18) 16%, transparent 24% 49%, rgba(106, 93, 231, .14) 56%, transparent 65% 100%);
+  filter: blur(2px);
+  animation: gmax-energy-pulse 3.8s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+.pokemon-card--gmax .pokemon-card__image-wrap img {
+  position: relative;
+  z-index: 1;
+  transform: scale(1.08);
+  filter: drop-shadow(0 0 5px rgba(220, 45, 75, .24)) drop-shadow(0 9px 10px rgba(50, 34, 55, .16));
+}
+@keyframes gmax-energy-pulse {
+  from { opacity: .58; transform: scale(.94) rotate(-4deg); }
+  to { opacity: 1; transform: scale(1.04) rotate(4deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pokemon-card--gmax .pokemon-card__image-wrap::before { animation: none; }
 }
 .pokemon-card__variant--gmax {
   border-color: rgba(204, 49, 77, .18);

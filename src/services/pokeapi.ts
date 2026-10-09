@@ -191,28 +191,32 @@ export async function enrichPokemonTypes(catalog: PokemonSummary[]): Promise<Pok
     }
   }
 
-  const enriched = Array.from(byId.values()).sort(sortCatalog)
-  const baseSpecies = enriched.filter((pokemon) => pokemon.id < 10000 && pokemon.kind === 'normal')
-  const gigantamaxArtwork = new Map(
-    enriched
-      .filter((pokemon) => pokemon.kind === 'gmax')
-      .map((pokemon) => [pokemon.name.replace(/-gmax$/, ''), pokemon.imageUrl]),
-  )
-  const dynamax = baseSpecies.map((pokemon) => ({
-    ...pokemon,
-    id: 200000 + pokemon.id,
-    baseId: pokemon.id,
-    name: pokemon.name + '-dynamax',
-    // Use the actual Gigantamax artwork where that species has a distinct form.
-    // Other Dynamax Pokémon retain their official species art and use the aura effect.
-    imageUrl: gigantamaxArtwork.get(pokemon.name) ?? pokemon.imageUrl,
-    kind: 'dynamax' as const,
-  }))
-  return enriched.concat(dynamax)
+  return Array.from(byId.values()).sort(sortCatalog)
+}
+
+type MegaBoostableStat = 'attack' | 'defense' | 'specialAttack' | 'specialDefense' | 'speed'
+
+function randomMegaBonus(): Record<MegaBoostableStat, number> {
+  const stats: MegaBoostableStat[] = ['attack', 'defense', 'specialAttack', 'specialDefense', 'speed']
+  const bonus: Record<MegaBoostableStat, number> = {
+    attack: 0,
+    defense: 0,
+    specialAttack: 0,
+    specialDefense: 0,
+    speed: 0,
+  }
+
+  // Cada um dos 100 pontos é atribuído aleatoriamente a um dos cinco atributos.
+  for (let point = 0; point < 100; point += 1) {
+    const stat = stats[Math.floor(Math.random() * stats.length)]
+    bonus[stat] += 1
+  }
+
+  return bonus
 }
 
 export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<PokemonBattleData> {
-  const requestId = pokemon.kind === 'dynamax' ? (pokemon.baseId ?? pokemon.id - 200000) : pokemon.id
+  const requestId = pokemon.id
   const cached = battleCache.get(pokemon.id)
 
   if (cached) {
@@ -227,27 +231,36 @@ export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<Pok
       const findStat = (name: string) =>
         data.stats.find((stat) => stat.stat.name === name)?.base_stat ?? 1
 
+      const stats = {
+        hp: findStat('hp'),
+        attack: findStat('attack'),
+        defense: findStat('defense'),
+        specialAttack: findStat('special-attack'),
+        specialDefense: findStat('special-defense'),
+        speed: findStat('speed'),
+      }
+
+      if (pokemon.kind === 'mega') {
+        const bonus = randomMegaBonus()
+        stats.attack += bonus.attack
+        stats.defense += bonus.defense
+        stats.specialAttack += bonus.specialAttack
+        stats.specialDefense += bonus.specialDefense
+        stats.speed += bonus.speed
+      }
+
       return {
         id: pokemon.id,
         name: pokemon.name,
         kind: pokemon.kind,
-        baseId: pokemon.baseId,
         speciesId: parseId(data.species.url),
         moves: data.moves.map((entry) => entry.move.name),
         types: data.types
           .sort((a, b) => a.slot - b.slot)
           .map((entry) => entry.type.name as PokemonTypeName),
-        // Keep the selected form's artwork. Dynamax may use its species' Gigantamax art,
-        // while battle stats and moves still come from the base species.
+        // Preserve artwork for the exact selected form (Mega or Gigantamax).
         imageUrl: pokemon.imageUrl || data.sprites.other?.['official-artwork']?.front_default || artworkUrl(requestId),
-        stats: {
-          hp: findStat('hp'),
-          attack: findStat('attack'),
-          defense: findStat('defense'),
-          specialAttack: findStat('special-attack'),
-          specialDefense: findStat('special-defense'),
-          speed: findStat('speed'),
-        },
+        stats,
         abilities: data.abilities.map(({ ability, is_hidden }) =>
           is_hidden ? ability.name + ' (oculta)' : ability.name,
         ),
