@@ -24,7 +24,7 @@ export function PokemonBrowser({
 }: Props) {
   const [selectedTypes, setSelectedTypes] = useState<PokemonTypeName[]>([])
   const [search, setSearch] = useState('')
-  const [category, setCategory] = useState<'all' | 'normal' | 'gmax' | 'dynamax'>('all')
+  const [category, setCategory] = useState<'all' | 'normal' | 'gmax' | 'dynamax' | 'mega'>('all')
 
   const list = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -98,7 +98,7 @@ export function PokemonBrowser({
           placeholder="pikachu"
         />
         <div className="filter-chips" aria-label="Categoria do Pokémon">
-          {([{value:'all',label:'Todos'},{value:'normal',label:'Normal'},{value:'gmax',label:'Gmax'},{value:'dynamax',label:'Dynamax'}] as const).map(option => <button key={option.value} type="button" className={category === option.value ? 'active' : ''} aria-pressed={category === option.value} onClick={() => setCategory(option.value)}>{option.label}</button>)}
+          {([{value:'all',label:'Todos'},{value:'normal',label:'Normal'},{value:'gmax',label:'Gigantamax'},{value:'dynamax',label:'Dynamax'},{value:'mega',label:'Mega'}] as const).map(option => <button key={option.value} type="button" className={category === option.value ? 'active' : ''} aria-pressed={category === option.value} onClick={() => setCategory(option.value)}>{option.label}</button>)}
         </div>
         <div>
           <button
