@@ -179,7 +179,6 @@ export class OnlineP2PHost {
   }
 
   start(): void {
-    this.startPolling()
     this.emitSnapshot()
   }
 
@@ -220,6 +219,8 @@ export class OnlineP2PHost {
     for (const player of room.players) {
       if (player.id === this.session.playerId) continue
       if (!this.peers.has(player.id)) {
+        this.nextPollDelay = SIGNAL_POLL_MS
+        this.startPolling()
         void this.connectPlayer(player.id)
       }
     }
@@ -280,10 +281,7 @@ export class OnlineP2PHost {
   close(): void {
     this.closed = true
 
-    if (this.pollTimer !== null) {
-      window.clearTimeout(this.pollTimer)
-      this.pollTimer = null
-    }
+    this.stopPolling()
 
     for (const playerId of Array.from(this.peers.keys())) {
       this.closePeer(playerId)
@@ -363,10 +361,11 @@ export class OnlineP2PHost {
       }
       this.callbacks.onConnectionChange(this.hasOpenConnection())
       this.sendSnapshotTo(playerId)
+      if (!this.hasPendingConnection()) this.stopPolling()
     }
 
     channel.onclose = () => {
-      this.callbacks.onConnectionChange(this.hasOpenConnection())
+      this.closePeer(playerId)
     }
 
     channel.onerror = () => {
@@ -493,13 +492,8 @@ export class OnlineP2PHost {
       }
     } finally {
       this.polling = false
-
-      if (!this.closed) {
-        this.pollTimer = window.setTimeout(
-          () => void this.pullSignals(),
-          this.nextPollDelay,
-        )
-      }
+      if (this.hasPendingConnection()) this.startPolling()
+      else this.stopPolling()
     }
   }
 
@@ -534,10 +528,23 @@ export class OnlineP2PHost {
   }
 
   private startPolling(): void {
-    if (this.closed || this.pollTimer !== null) return
-    this.pollTimer = window.setTimeout(
-      () => void this.pullSignals(),
-      SIGNAL_POLL_MS,
+    if (this.closed || this.pollTimer !== null || this.polling) return
+    this.pollTimer = window.setTimeout(() => {
+      this.pollTimer = null
+      void this.pullSignals()
+    }, this.nextPollDelay)
+  }
+
+  private stopPolling(): void {
+    if (this.pollTimer !== null) {
+      window.clearTimeout(this.pollTimer)
+      this.pollTimer = null
+    }
+  }
+
+  private hasPendingConnection(): boolean {
+    return Array.from(this.peers.values()).some(
+      (peer) => peer.channel.readyState !== 'open',
     )
   }
 
@@ -642,10 +649,7 @@ export class OnlineP2PPeer {
   close(): void {
     this.closed = true
 
-    if (this.pollTimer !== null) {
-      window.clearTimeout(this.pollTimer)
-      this.pollTimer = null
-    }
+    this.stopPolling()
 
     this.channel?.close()
     this.connection?.close()
@@ -682,21 +686,9 @@ export class OnlineP2PPeer {
           connection.connectionState === 'closed')
       ) {
         const channel = this.channel
-        this.connection = null
-        this.channel = null
-        this.pendingCandidates = []
-        if (channel && channel.readyState !== 'closed') {
-          channel.onopen = null
-          channel.onclose = null
-          channel.onerror = null
-          channel.onmessage = null
-          channel.close()
-        }
-        connection.onicecandidate = null
-        connection.ondatachannel = null
-        connection.onconnectionstatechange = null
-        connection.close()
-        this.callbacks.onConnectionChange(false)
+        this.resetConnection()
+        this.nextPollDelay = SIGNAL_POLL_MS
+        this.startPolling()
       }
     }
 
@@ -706,11 +698,14 @@ export class OnlineP2PPeer {
       channel.onopen = () => {
         if (!this.closed && this.channel === channel) {
           this.callbacks.onConnectionChange(true)
+          this.stopPolling()
         }
       }
       channel.onclose = () => {
         if (this.channel === channel) {
-          this.callbacks.onConnectionChange(false)
+          this.resetConnection()
+          this.nextPollDelay = SIGNAL_POLL_MS
+          this.startPolling()
         }
       }
       channel.onerror = () => {
@@ -762,13 +757,8 @@ export class OnlineP2PPeer {
       }
     } finally {
       this.polling = false
-
-      if (!this.closed) {
-        this.pollTimer = window.setTimeout(
-          () => void this.pullSignals(),
-          this.nextPollDelay,
-        )
-      }
+      if (!this.isConnected()) this.startPolling()
+      else this.stopPolling()
     }
   }
 
@@ -860,12 +850,18 @@ export class OnlineP2PPeer {
   }
 
   private startPolling(): void {
-    if (this.closed || this.pollTimer !== null) return
+    if (this.closed || this.pollTimer !== null || this.polling || this.isConnected()) return
+    this.pollTimer = window.setTimeout(() => {
+      this.pollTimer = null
+      void this.pullSignals()
+    }, this.nextPollDelay)
+  }
 
-    this.pollTimer = window.setTimeout(
-      () => void this.pullSignals(),
-      SIGNAL_POLL_MS,
-    )
+  private stopPolling(): void {
+    if (this.pollTimer !== null) {
+      window.clearTimeout(this.pollTimer)
+      this.pollTimer = null
+    }
   }
 
   private send(message: P2PMessage): void {
