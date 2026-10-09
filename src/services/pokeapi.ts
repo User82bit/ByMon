@@ -194,6 +194,27 @@ export async function enrichPokemonTypes(catalog: PokemonSummary[]): Promise<Pok
   return Array.from(byId.values()).sort(sortCatalog)
 }
 
+type MegaBoostableStat = 'attack' | 'defense' | 'specialAttack' | 'specialDefense' | 'speed'
+
+function randomMegaBonus(): Record<MegaBoostableStat, number> {
+  const stats: MegaBoostableStat[] = ['attack', 'defense', 'specialAttack', 'specialDefense', 'speed']
+  const bonus: Record<MegaBoostableStat, number> = {
+    attack: 0,
+    defense: 0,
+    specialAttack: 0,
+    specialDefense: 0,
+    speed: 0,
+  }
+
+  // Cada um dos 100 pontos é atribuído aleatoriamente a um dos cinco atributos.
+  for (let point = 0; point < 100; point += 1) {
+    const stat = stats[Math.floor(Math.random() * stats.length)]
+    bonus[stat] += 1
+  }
+
+  return bonus
+}
+
 export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<PokemonBattleData> {
   const requestId = pokemon.id
   const cached = battleCache.get(pokemon.id)
@@ -210,6 +231,24 @@ export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<Pok
       const findStat = (name: string) =>
         data.stats.find((stat) => stat.stat.name === name)?.base_stat ?? 1
 
+      const stats = {
+        hp: findStat('hp'),
+        attack: findStat('attack'),
+        defense: findStat('defense'),
+        specialAttack: findStat('special-attack'),
+        specialDefense: findStat('special-defense'),
+        speed: findStat('speed'),
+      }
+
+      if (pokemon.kind === 'mega') {
+        const bonus = randomMegaBonus()
+        stats.attack += bonus.attack
+        stats.defense += bonus.defense
+        stats.specialAttack += bonus.specialAttack
+        stats.specialDefense += bonus.specialDefense
+        stats.speed += bonus.speed
+      }
+
       return {
         id: pokemon.id,
         name: pokemon.name,
@@ -221,14 +260,7 @@ export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<Pok
           .map((entry) => entry.type.name as PokemonTypeName),
         // Preserve artwork for the exact selected form (Mega or Gigantamax).
         imageUrl: pokemon.imageUrl || data.sprites.other?.['official-artwork']?.front_default || artworkUrl(requestId),
-        stats: {
-          hp: findStat('hp'),
-          attack: findStat('attack'),
-          defense: findStat('defense'),
-          specialAttack: findStat('special-attack'),
-          specialDefense: findStat('special-defense'),
-          speed: findStat('speed'),
-        },
+        stats,
         abilities: data.abilities.map(({ ability, is_hidden }) =>
           is_hidden ? ability.name + ' (oculta)' : ability.name,
         ),
