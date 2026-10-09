@@ -498,13 +498,10 @@ async function pullSignals(
   }
 
   const key = signalKey(body.roomId, body.playerId)
-  const rawSignals = await redis.lRange(key, 0, 63)
-
-  if (rawSignals.length > 0) {
-    await redis.del(key)
-  }
-
-  const signals = rawSignals
+  // LPOP com contagem remove apenas os sinais lidos numa operação atômica.
+  // LRANGE seguido de DEL poderia apagar sinais recebidos entre as duas chamadas.
+  const rawSignals = await redis.lPop(key, 64)
+  const signals = (rawSignals ?? [])
     .map((entry) => {
       try {
         return JSON.parse(entry)
