@@ -11,6 +11,8 @@ import type {
 } from '../types/online'
 
 const SIGNAL_POLL_MS = 700
+const SIGNAL_POLL_MAX_MS = 3_000
+const PEER_CONNECT_TIMEOUT_MS = 20_000
 export const ONLINE_TEAM_COLORS = [
   '#E53935', '#1E88E5', '#43A047', '#FB8C00', '#8E24AA',
   '#EC407A', '#00ACC1', '#FDD835', '#6D4C41', '#546E7A',
@@ -61,6 +63,21 @@ interface PeerConnectionState {
   connection: RTCPeerConnection
   channel: RTCDataChannel
   pendingCandidates: RTCIceCandidateInit[]
+  connectTimer: number | null
+}
+
+async function addPendingCandidates(
+  connection: RTCPeerConnection,
+  candidates: RTCIceCandidateInit[],
+): Promise<void> {
+  for (const candidate of candidates.splice(0)) {
+    try {
+      await connection.addIceCandidate(candidate)
+    } catch {
+      // Candidatos de uma tentativa antiga podem chegar durante uma reconexão.
+      // Ignorá-los evita perder a oferta/answer que vem na mesma fila.
+    }
+  }
 }
 
 function getIceServers(): RTCIceServer[] {
@@ -150,6 +167,7 @@ export class OnlineP2PHost {
   private readonly peers = new Map<string, PeerConnectionState>()
   private pollTimer: number | null = null
   private polling = false
+  private nextPollDelay = SIGNAL_POLL_MS
   private closed = false
   private status: P2PSnapshot['status']
 
@@ -300,9 +318,19 @@ export class OnlineP2PHost {
       connection,
       channel,
       pendingCandidates: [],
+      connectTimer: null,
     }
 
     this.peers.set(playerId, peer)
+    peer.connectTimer = window.setTimeout(() => {
+      const current = this.peers.get(playerId)
+      if (current !== peer || peer.channel.readyState === 'open' || this.closed) return
+
+      this.closePeer(playerId)
+      this.callbacks.onError(new Error(
+        'Não foi possível estabelecer a conexão P2P em 20 segundos. A rede pode exigir um servidor TURN.',
+      ))
+    }, PEER_CONNECT_TIMEOUT_MS)
 
     connection.onicecandidate = (event) => {
       if (!event.candidate) return
@@ -329,6 +357,10 @@ export class OnlineP2PHost {
     }
 
     channel.onopen = () => {
+      if (peer.connectTimer !== null) {
+        window.clearTimeout(peer.connectTimer)
+        peer.connectTimer = null
+      }
       this.callbacks.onConnectionChange(this.hasOpenConnection())
       this.sendSnapshotTo(playerId)
     }
@@ -434,10 +466,24 @@ export class OnlineP2PHost {
         sessionToken: this.session.sessionToken,
       })
 
+      this.nextPollDelay = signals.length > 0
+        ? SIGNAL_POLL_MS
+        : Math.min(SIGNAL_POLL_MAX_MS, Math.round(this.nextPollDelay * 1.5))
+
       for (const signal of signals) {
-        await this.handleSignal(signal)
+        try {
+          await this.handleSignal(signal)
+        } catch (error) {
+          if (!this.closed) {
+            this.callbacks.onError(errorFrom(error, 'Não foi possível processar a sinalização P2P.'))
+          }
+        }
       }
     } catch (error) {
+      this.nextPollDelay = Math.min(
+        SIGNAL_POLL_MAX_MS,
+        Math.round(this.nextPollDelay * 1.5),
+      )
       if (!this.closed) {
         this.callbacks.onError(
           error instanceof Error
@@ -451,7 +497,7 @@ export class OnlineP2PHost {
       if (!this.closed) {
         this.pollTimer = window.setTimeout(
           () => void this.pullSignals(),
-          SIGNAL_POLL_MS,
+          this.nextPollDelay,
         )
       }
     }
@@ -466,10 +512,7 @@ export class OnlineP2PHost {
       if (!answer) return
 
       await peer.connection.setRemoteDescription(answer)
-
-      for (const candidate of peer.pendingCandidates.splice(0)) {
-        await peer.connection.addIceCandidate(candidate)
-      }
+      await addPendingCandidates(peer.connection, peer.pendingCandidates)
 
       return
     }
@@ -479,7 +522,11 @@ export class OnlineP2PHost {
       if (!candidate) return
 
       if (peer.connection.remoteDescription) {
-        await peer.connection.addIceCandidate(candidate)
+        try {
+          await peer.connection.addIceCandidate(candidate)
+        } catch {
+          // Ignore candidates arriving late from an obsolete negotiation.
+        }
       } else {
         peer.pendingCandidates.push(candidate)
       }
@@ -550,6 +597,7 @@ export class OnlineP2PHost {
     if (!peer) return
 
     this.peers.delete(playerId)
+    if (peer.connectTimer !== null) window.clearTimeout(peer.connectTimer)
     peer.channel.close()
     peer.connection.close()
     this.callbacks.onConnectionChange(this.hasOpenConnection())
@@ -564,6 +612,7 @@ export class OnlineP2PPeer {
   private pendingCandidates: RTCIceCandidateInit[] = []
   private pollTimer: number | null = null
   private polling = false
+  private nextPollDelay = SIGNAL_POLL_MS
   private closed = false
 
   constructor(session: RoomSession, callbacks: Callbacks) {
@@ -632,9 +681,21 @@ export class OnlineP2PPeer {
         (connection.connectionState === 'failed' ||
           connection.connectionState === 'closed')
       ) {
+        const channel = this.channel
         this.connection = null
         this.channel = null
         this.pendingCandidates = []
+        if (channel && channel.readyState !== 'closed') {
+          channel.onopen = null
+          channel.onclose = null
+          channel.onerror = null
+          channel.onmessage = null
+          channel.close()
+        }
+        connection.onicecandidate = null
+        connection.ondatachannel = null
+        connection.onconnectionstatechange = null
+        connection.close()
         this.callbacks.onConnectionChange(false)
       }
     }
@@ -674,10 +735,24 @@ export class OnlineP2PPeer {
         sessionToken: this.session.sessionToken,
       })
 
+      this.nextPollDelay = signals.length > 0
+        ? SIGNAL_POLL_MS
+        : Math.min(SIGNAL_POLL_MAX_MS, Math.round(this.nextPollDelay * 1.5))
+
       for (const signal of signals) {
-        await this.handleSignal(signal)
+        try {
+          await this.handleSignal(signal)
+        } catch (error) {
+          if (!this.closed) {
+            this.callbacks.onError(errorFrom(error, 'Não foi possível processar a sinalização P2P.'))
+          }
+        }
       }
     } catch (error) {
+      this.nextPollDelay = Math.min(
+        SIGNAL_POLL_MAX_MS,
+        Math.round(this.nextPollDelay * 1.5),
+      )
       if (!this.closed) {
         this.callbacks.onError(
           error instanceof Error
@@ -691,16 +766,40 @@ export class OnlineP2PPeer {
       if (!this.closed) {
         this.pollTimer = window.setTimeout(
           () => void this.pullSignals(),
-          SIGNAL_POLL_MS,
+          this.nextPollDelay,
         )
       }
     }
   }
 
-  private async handleSignal(signal: OnlineSignal): Promise<void> {
-    const connection = this.createConnection()
+  private resetConnection(): void {
+    const channel = this.channel
+    const connection = this.connection
+    this.channel = null
+    this.connection = null
+    this.pendingCandidates = []
 
+    if (channel) {
+      channel.onopen = null
+      channel.onclose = null
+      channel.onerror = null
+      channel.onmessage = null
+      channel.close()
+    }
+
+    if (connection) {
+      connection.onicecandidate = null
+      connection.onconnectionstatechange = null
+      connection.ondatachannel = null
+      connection.close()
+    }
+
+    this.callbacks.onConnectionChange(false)
+  }
+
+  private async handleSignal(signal: OnlineSignal): Promise<void> {
     if (signal.signalType === 'ice-candidate') {
+      const connection = this.createConnection()
       const candidate = asCandidate(signal.data)
       if (!candidate) return
 
@@ -720,11 +819,12 @@ export class OnlineP2PPeer {
     const offer = asDescription(signal.data)
     if (!offer) return
 
+    // A fresh host offer means the previous peer connection was replaced.
+    // Reuse is only safe before this client has accepted an offer.
+    if (this.connection?.remoteDescription) this.resetConnection()
+    const connection = this.createConnection()
     await connection.setRemoteDescription(offer)
-
-    for (const candidate of this.pendingCandidates.splice(0)) {
-      await connection.addIceCandidate(candidate)
-    }
+    await addPendingCandidates(connection, this.pendingCandidates)
 
     const answer = await connection.createAnswer()
     await connection.setLocalDescription(answer)
