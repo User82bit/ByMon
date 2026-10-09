@@ -237,8 +237,9 @@ export async function getPokemonBattleData(pokemon: PokemonSummary): Promise<Pok
         types: data.types
           .sort((a, b) => a.slot - b.slot)
           .map((entry) => entry.type.name as PokemonTypeName),
-        imageUrl:
-          data.sprites.other?.['official-artwork']?.front_default ?? artworkUrl(requestId),
+        // Keep the selected form's artwork. Dynamax may use its species' Gigantamax art,
+        // while battle stats and moves still come from the base species.
+        imageUrl: pokemon.imageUrl || data.sprites.other?.['official-artwork']?.front_default || artworkUrl(requestId),
         stats: {
           hp: findStat('hp'),
           attack: findStat('attack'),
