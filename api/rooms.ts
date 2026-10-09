@@ -4,6 +4,7 @@ import type { OnlinePlayer, OnlineRoom, OnlineRoomStatus } from '../src/types/on
 
 const ROOM_TTL_SECONDS = 60 * 60 * 6
 const PLAYER_STALE_MS = 30_000
+const PLAYER_PRESENCE_TTL_SECONDS = 45
 const SIGNAL_TTL_SECONDS = 60
 const MAX_SIGNAL_BYTES = 64 * 1024
 const ROOM_PREFIX = 'bymon:room:'
@@ -99,6 +100,10 @@ function signalKey(roomId: string, playerId: string): string {
   return SIGNAL_PREFIX + roomId + ':' + playerId
 }
 
+function presenceKey(roomId: string, playerId: string): string {
+  return 'bymon:presence:' + roomId + ':' + playerId
+}
+
 function hashPassword(password: string): string {
   return createHash('sha256').update(password).digest('hex')
 }
@@ -127,12 +132,19 @@ function json(data: unknown, status = 200): Response {
   })
 }
 
-function isActive(player: StoredPlayer, now: number): boolean {
-  return now - player.lastSeen <= PLAYER_STALE_MS
-}
+async function pruneRoom(
+  redis: ReturnType<typeof createClient>,
+  room: StoredRoom,
+  now: number,
+): Promise<StoredRoom> {
+  const presence = await redis.mGet(
+    room.players.map((player) => presenceKey(room.id, player.id)),
+  )
 
-function pruneRoom(room: StoredRoom, now: number): StoredRoom {
-  room.players = room.players.filter((player) => isActive(player, now))
+  room.players = room.players.filter((player, index) =>
+    presence[index] !== null || now - player.lastSeen <= PLAYER_STALE_MS,
+  )
+
   return room
 }
 
@@ -172,7 +184,10 @@ async function deleteRoom(
     .exec()
 
   await Promise.all(
-    room.players.map((player) => redis.del(signalKey(room.id, player.id))),
+    room.players.flatMap((player) => [
+      redis.del(signalKey(room.id, player.id)),
+      redis.del(presenceKey(room.id, player.id)),
+    ]),
   )
 }
 
@@ -198,14 +213,12 @@ async function listRooms(redis: ReturnType<typeof createClient>): Promise<Respon
       continue
     }
 
-    const room = pruneRoom(JSON.parse(raw) as StoredRoom, now)
+    const room = await pruneRoom(redis, JSON.parse(raw) as StoredRoom, now)
 
     if (!hostIsActive(room)) {
       await deleteRoom(redis, room)
       continue
     }
-
-    await redis.set(roomKey(room.id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
 
     if (room.status === 'waiting') {
       rooms.push({
@@ -272,6 +285,7 @@ async function createRoom(
 
   await redis.multi()
     .set(roomKey(id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
+    .set(presenceKey(id, playerId), String(now), { EX: PLAYER_PRESENCE_TTL_SECONDS })
     .set(codeKey(code), id, { EX: ROOM_TTL_SECONDS })
     .sAdd(PUBLIC_ROOMS_KEY, id)
     .exec()
@@ -301,7 +315,7 @@ async function joinRoom(
   const raw = await redis.get(roomKey(id))
   if (!raw) return json({ error: 'Sala não encontrada.' }, 404)
 
-  const room = pruneRoom(JSON.parse(raw) as StoredRoom, Date.now())
+  const room = await pruneRoom(redis, JSON.parse(raw) as StoredRoom, Date.now())
 
   if (!hostIsActive(room)) {
     await deleteRoom(redis, room)
@@ -331,7 +345,10 @@ async function joinRoom(
     lastSeen: Date.now(),
   })
 
-  await redis.set(roomKey(room.id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
+  await redis.multi()
+    .set(roomKey(room.id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
+    .set(presenceKey(room.id, playerId), String(Date.now()), { EX: PLAYER_PRESENCE_TTL_SECONDS })
+    .exec()
 
   return json({
     room: publicRoom(room),
@@ -349,21 +366,39 @@ async function getAuthenticatedRoomPlayer(
   const raw = await redis.get(roomKey(roomId))
   if (!raw) return null
 
-  const room = pruneRoom(JSON.parse(raw) as StoredRoom, Date.now())
+  const storedRoom = JSON.parse(raw) as StoredRoom
+  const storedPlayer = storedRoom.players.find(
+    (entry) => entry.id === playerId && entry.sessionToken === sessionToken,
+  )
+
+  if (!storedPlayer) return null
+
+  const now = Date.now()
+  const hasPresence = await redis.exists(presenceKey(roomId, playerId))
+  if (!hasPresence && now - storedPlayer.lastSeen > PLAYER_STALE_MS) {
+    return null
+  }
+
+  // Presence updates are isolated per player. Polling no longer rewrites the
+  // entire room document, which could overwrite a concurrent join or status update.
+  await redis.set(
+    presenceKey(roomId, playerId),
+    String(now),
+    { EX: PLAYER_PRESENCE_TTL_SECONDS },
+  )
+
+  const room = await pruneRoom(redis, storedRoom, now)
   if (!hostIsActive(room)) {
     await deleteRoom(redis, room)
     return null
   }
 
-  const player = room.players.find(
-    (entry) => entry.id === playerId && entry.sessionToken === sessionToken,
-  )
-
+  const player = room.players.find((entry) => entry.id === playerId)
   if (!player) return null
 
-  player.lastSeen = Date.now()
-  await redis.set(roomKey(room.id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
-
+  // Keep the returned room fresh for status/leave operations. Heartbeats
+  // themselves persist only the presence key, not this whole room object.
+  player.lastSeen = now
   return { room, player }
 }
 
@@ -423,7 +458,10 @@ async function updatePlayer(
 
   room.players = room.players.filter((entry) => entry.id !== body.playerId)
   await redis.set(roomKey(room.id), JSON.stringify(room), { EX: ROOM_TTL_SECONDS })
-  await redis.del(signalKey(room.id, body.playerId))
+  await Promise.all([
+    redis.del(signalKey(room.id, body.playerId)),
+    redis.del(presenceKey(room.id, body.playerId)),
+  ])
 
   return json({ left: true, room: publicRoom(room) })
 }
