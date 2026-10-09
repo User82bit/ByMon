@@ -44,6 +44,7 @@ export function PokemonCard({ pokemon, onSelect }: Props) {
               : 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/' + pokemon.id + '.png'}
             alt={formatPokemonName(pokemon.name)}
             loading="lazy"
+            decoding="async"
             onError={handleImageError}
           />
         ) : (
