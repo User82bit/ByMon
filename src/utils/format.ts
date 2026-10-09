@@ -9,6 +9,21 @@ const DISPLAY_NAME_OVERRIDES: Record<string, string> = {
 }
 
 export function formatPokemonName(name: string): string {
+  const megaMatch = name.match(/^(.*)-mega(?:-([a-z0-9]+))?$/)
+  if (megaMatch) {
+    const baseName = formatPokemonName(megaMatch[1])
+    const suffix = megaMatch[2] ? ' ' + megaMatch[2].toUpperCase() : ''
+    return 'Mega ' + baseName + suffix
+  }
+
+  if (name.endsWith('-gmax')) {
+    return formatPokemonName(name.slice(0, -5)) + ' Gigantamax'
+  }
+
+  if (name.endsWith('-dynamax')) {
+    return formatPokemonName(name.slice(0, -8)) + ' Dynamax'
+  }
+
   if (DISPLAY_NAME_OVERRIDES[name]) return DISPLAY_NAME_OVERRIDES[name]
   return name
     .split('-')
