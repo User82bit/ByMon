@@ -33,10 +33,11 @@ export function OnlineServers({
     password: '',
   })
 
-  const load = useCallback(async () => {
+  const refreshRooms = useCallback(async () => {
     try {
+      const nextRooms = await listOnlineRooms()
+      setRooms(nextRooms)
       setError(null)
-      setRooms(await listOnlineRooms())
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Não foi possível carregar as salas.')
     } finally {
@@ -44,11 +45,36 @@ export function OnlineServers({
     }
   }, [])
 
+  const load = useCallback(async () => {
+    setLoading(true)
+    await refreshRooms()
+  }, [refreshRooms])
+
   useEffect(() => {
-    void load()
-    const timer = window.setInterval(() => void load(), 3000)
-    return () => window.clearInterval(timer)
-  }, [load])
+    let timer: number | undefined
+
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') void refreshRooms()
+    }
+
+    const handleVisibilityChange = () => {
+      if (timer !== undefined) window.clearInterval(timer)
+      timer = undefined
+
+      if (document.visibilityState === 'visible') {
+        refreshIfVisible()
+        timer = window.setInterval(refreshIfVisible, 5000)
+      }
+    }
+
+    handleVisibilityChange()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      if (timer !== undefined) window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [refreshRooms])
 
   async function createRoom() {
     setCreating(true)

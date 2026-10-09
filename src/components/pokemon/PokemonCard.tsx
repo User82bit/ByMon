@@ -16,6 +16,9 @@ export function PokemonCard({ pokemon, onSelect }: Props) {
     setImageStatus((current) => Math.min(current + 1, 2))
   }
 
+  const isDynamax = pokemon.kind === 'dynamax'
+  const fallbackId = pokemon.baseId ?? pokemon.id
+
   function handleDragStart(event: DragEvent<HTMLDivElement>) {
     event.dataTransfer.setData('application/x-bymon-pokemon', JSON.stringify(pokemon))
     event.dataTransfer.effectAllowed = 'copy'
@@ -23,7 +26,7 @@ export function PokemonCard({ pokemon, onSelect }: Props) {
 
   return (
     <div
-      className="pokemon-card"
+      className={'pokemon-card' + (isDynamax ? ' pokemon-card--dynamax' : '')}
       draggable
       onDragStart={handleDragStart}
       onClick={() => onSelect?.(pokemon)}
@@ -41,9 +44,10 @@ export function PokemonCard({ pokemon, onSelect }: Props) {
           <img
             src={imageStatus === 0
               ? pokemon.imageUrl
-              : 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/' + pokemon.id + '.png'}
+              : 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/' + fallbackId + '.png'}
             alt={formatPokemonName(pokemon.name)}
             loading="lazy"
+            decoding="async"
             onError={handleImageError}
           />
         ) : (
@@ -54,6 +58,7 @@ export function PokemonCard({ pokemon, onSelect }: Props) {
       </div>
       <div className="pokemon-card__content">
         <strong>{formatPokemonName(pokemon.name)}</strong>
+        {isDynamax && <span className="pokemon-card__variant">DYNAMAX</span>}
         <div className="pokemon-card__types">
           {pokemon.types.map((type) => <TypeBadge key={type} type={type} />)}
         </div>

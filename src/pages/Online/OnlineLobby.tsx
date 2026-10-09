@@ -86,7 +86,7 @@ export function OnlineLobby({
     pokemon: [],
   })
   const [teamLoaded, setTeamLoaded] = useState(false)
-  const [error, setError] = useState<string | null>(catalogError)
+  const [error, setError] = useState<string | null>(null)
   const [leaving, setLeaving] = useState(false)
   const [p2pConnected, setP2pConnected] = useState(session.room.players.length < 2)
 
@@ -101,10 +101,6 @@ export function OnlineLobby({
   )
 
   useEffect(() => {
-    setError(catalogError)
-  }, [catalogError])
-
-  useEffect(() => {
     teamRef.current = team
   }, [team])
 
@@ -112,33 +108,41 @@ export function OnlineLobby({
     if (loading) return
     let active = true
 
-    try {
-      const raw = window.localStorage.getItem(teamStorageKey(session))
-      if (raw) {
-        const stored = JSON.parse(raw) as unknown
-        const isLegacyList = Array.isArray(stored)
-        const record = stored && typeof stored === 'object' && !isLegacyList
-          ? stored as { pokemonIds?: unknown; color?: unknown }
-          : null
-        const ids = isLegacyList
-          ? stored.filter((id): id is number => Number.isInteger(id))
-          : Array.isArray(record?.pokemonIds)
-            ? record.pokemonIds.filter((id): id is number => Number.isInteger(id))
-            : []
-        const color = typeof record?.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(record.color)
-          ? record.color.toUpperCase()
-          : getOnlineTeamColor(Math.max(0, session.room.players.findIndex((player) => player.id === session.playerId)))
-        const pokemon = ids
-          .map((id) => catalogById.get(id))
-          .filter((entry): entry is PokemonSummary => Boolean(entry))
+    async function restoreStoredTeam() {
+      // Resolve persisted data asynchronously to avoid a cascading synchronous render.
+      await Promise.resolve()
+      if (!active) return
 
-        if (active) setTeam((current) => ({ ...current, color, pokemon }))
+      try {
+        const raw = window.localStorage.getItem(teamStorageKey(session))
+        if (raw) {
+          const stored = JSON.parse(raw) as unknown
+          const isLegacyList = Array.isArray(stored)
+          const record = stored && typeof stored === 'object' && !isLegacyList
+            ? stored as { pokemonIds?: unknown; color?: unknown }
+            : null
+          const ids = isLegacyList
+            ? stored.filter((id): id is number => Number.isInteger(id))
+            : Array.isArray(record?.pokemonIds)
+              ? record.pokemonIds.filter((id): id is number => Number.isInteger(id))
+              : []
+          const color = typeof record?.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(record.color)
+            ? record.color.toUpperCase()
+            : getOnlineTeamColor(Math.max(0, session.room.players.findIndex((player) => player.id === session.playerId)))
+          const pokemon = ids
+            .map((id) => catalogById.get(id))
+            .filter((entry): entry is PokemonSummary => Boolean(entry))
+
+          setTeam((current) => ({ ...current, color, pokemon }))
+        }
+      } catch {
+        window.localStorage.removeItem(teamStorageKey(session))
+      } finally {
+        if (active) setTeamLoaded(true)
       }
-    } catch {
-      window.localStorage.removeItem(teamStorageKey(session))
-    } finally {
-      if (active) setTeamLoaded(true)
     }
+
+    void restoreStoredTeam()
 
     return () => {
       active = false
@@ -381,7 +385,7 @@ export function OnlineLobby({
         </Button>
       </header>
 
-      {error && <div className="online-error">{error}</div>}
+      {(error ?? catalogError) && <div className="online-error">{error ?? catalogError}</div>}
 
       {battleStarted ? (
         <section className="online-lobby__started">

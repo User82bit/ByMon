@@ -66,7 +66,6 @@ type StoredRoom = Omit<OnlineRoom, 'players'> & {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var __bymonRedis: Promise<ReturnType<typeof createClient>> | undefined
 }
 
@@ -514,7 +513,7 @@ async function pullSignals(
   return json({ signals })
 }
 
-export default async function handler(request: Request): Promise<Response> {
+async function handle(request: Request): Promise<Response> {
   try {
     const redis = await getRedis()
 
@@ -565,3 +564,5 @@ export default async function handler(request: Request): Promise<Response> {
     )
   }
 }
+
+export default { fetch: handle }
