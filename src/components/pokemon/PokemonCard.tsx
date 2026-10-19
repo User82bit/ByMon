@@ -1,4 +1,4 @@
-import { useState, type DragEvent } from 'react'
+import { memo, useState, type DragEvent } from 'react'
 import type { PokemonSummary } from '../../types/pokemon'
 import { formatPokemonName } from '../../utils/format'
 import { TypeBadge } from '../ui/TypeBadge'
@@ -9,7 +9,7 @@ interface Props {
   onSelect?: (pokemon: PokemonSummary) => void
 }
 
-export function PokemonCard({ pokemon, onSelect }: Props) {
+export const PokemonCard = memo(function PokemonCard({ pokemon, onSelect }: Props) {
   const [imageStatus, setImageStatus] = useState(0)
 
   function handleImageError() {
@@ -18,7 +18,6 @@ export function PokemonCard({ pokemon, onSelect }: Props) {
 
   const isMega = pokemon.kind === 'mega'
   const isGmax = pokemon.kind === 'gmax'
-  const fallbackId = pokemon.id
   const variantClass = isMega
     ? ' pokemon-card--mega'
     : isGmax
@@ -50,8 +49,10 @@ export function PokemonCard({ pokemon, onSelect }: Props) {
           <img
             src={imageStatus === 0
               ? pokemon.imageUrl
-              : 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/' + fallbackId + '.png'}
+              : 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/' + pokemon.id + '.png'}
             alt={formatPokemonName(pokemon.name)}
+            width={140}
+            height={140}
             loading="lazy"
             decoding="async"
             onError={handleImageError}
@@ -72,4 +73,4 @@ export function PokemonCard({ pokemon, onSelect }: Props) {
       </div>
     </div>
   )
-}
+})

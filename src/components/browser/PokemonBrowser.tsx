@@ -15,52 +15,60 @@ interface Props {
   onSelectPokemon: (pokemon: PokemonSummary) => void
 }
 
-export function PokemonBrowser({
-  catalog,
-  loading,
-  error,
-  onRetry,
-  onSelectPokemon,
-}: Props) {
+const PAGE_SIZE = 60
+
+export function PokemonBrowser({ catalog, loading, error, onRetry, onSelectPokemon }: Props) {
   const [selectedTypes, setSelectedTypes] = useState<PokemonTypeName[]>([])
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<'all' | 'normal' | 'gmax' | 'mega'>('all')
+  const [page, setPage] = useState(0)
 
   const list = useMemo(() => {
     const query = search.trim().toLowerCase()
-
     return catalog.filter((pokemon) => {
       const matchesType =
         selectedTypes.length === 0
           ? true
           : selectedTypes.length === 1
             ? pokemon.types.includes(selectedTypes[0])
-            : pokemon.types.length === 2 &&
-              selectedTypes.every((type) => pokemon.types.includes(type))
-
-      const matchesSearch = !query || pokemon.name.includes(query)
-      const matchesCategory = category === 'all' || pokemon.kind === category
-
-      return matchesType && matchesSearch && matchesCategory
+            : pokemon.types.length === 2 && selectedTypes.every((type) => pokemon.types.includes(type))
+      return matchesType &&
+        (!query || pokemon.name.includes(query)) &&
+        (category === 'all' || pokemon.kind === category)
     })
   }, [catalog, search, selectedTypes, category])
 
+  const pageCount = Math.max(1, Math.ceil(list.length / PAGE_SIZE))
+  const safePage = Math.min(page, pageCount - 1)
+  const visiblePokemon = useMemo(
+    () => list.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE),
+    [list, safePage],
+  )
+  const firstVisible = list.length === 0 ? 0 : safePage * PAGE_SIZE + 1
+  const lastVisible = Math.min((safePage + 1) * PAGE_SIZE, list.length)
+
   function selectType(type: PokemonTypeName) {
+    setPage(0)
     setSelectedTypes((current) => {
-      if (current.includes(type)) {
-        return current.filter((selected) => selected !== type)
-      }
-
-      if (current.length >= 2) {
-        return current
-      }
-
+      if (current.includes(type)) return current.filter((selected) => selected !== type)
+      if (current.length >= 2) return current
       return current.concat(type)
     })
   }
 
   function clearTypes() {
+    setPage(0)
     setSelectedTypes([])
+  }
+
+  function changeSearch(value: string) {
+    setPage(0)
+    setSearch(value)
+  }
+
+  function changeCategory(value: 'all' | 'normal' | 'gmax' | 'mega') {
+    setPage(0)
+    setCategory(value)
   }
 
   return (
@@ -76,43 +84,49 @@ export function PokemonBrowser({
       ) : loading ? (
         <p>Carregando lista de Pokémon...</p>
       ) : (
-        <div className="pokemon-grid">
-          {list.map((pokemon) => (
-            <PokemonCard
-              key={pokemon.id}
-              pokemon={pokemon}
-              onSelect={onSelectPokemon}
-            />
-          ))}
-          {list.length === 0 && (
-            <div className="empty">Nenhum Pokémon corresponde aos filtros.</div>
+        <>
+          <div className="pokemon-grid">
+            {visiblePokemon.map((pokemon) => (
+              <PokemonCard key={pokemon.id} pokemon={pokemon} onSelect={onSelectPokemon} />
+            ))}
+            {list.length === 0 && (
+              <div className="empty">Nenhum Pokémon corresponde aos filtros.</div>
+            )}
+          </div>
+
+          {list.length > 0 && (
+            <nav className="pokemon-pagination" aria-label="Paginação da Pokédex">
+              <span className="pokemon-pagination__status" aria-live="polite">
+                Exibindo {firstVisible}–{lastVisible} de {list.length} Pokémon
+              </span>
+              <div className="pokemon-pagination__actions">
+                <button type="button" onClick={() => setPage(Math.max(0, safePage - 1))} disabled={safePage === 0} aria-label="Página anterior">
+                  Anterior
+                </button>
+                <span>Página {safePage + 1} de {pageCount}</span>
+                <button type="button" onClick={() => setPage(Math.min(pageCount - 1, safePage + 1))} disabled={safePage >= pageCount - 1} aria-label="Próxima página">
+                  Próxima
+                </button>
+              </div>
+            </nav>
           )}
-        </div>
+        </>
       )}
 
       <div className="filters">
-        <TextInput
-          label="Pesquisar"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="pikachu"
-        />
+        <TextInput label="Pesquisar" value={search} onChange={(e) => changeSearch(e.target.value)} placeholder="pikachu" />
         <div className="filter-chips" aria-label="Categoria do Pokémon">
-          {([{value:'all',label:'Todos'},{value:'normal',label:'Normal'},{value:'gmax',label:'Gigantamax'},{value:'mega',label:'Mega'}] as const).map(option => <button key={option.value} type="button" className={category === option.value ? 'active' : ''} aria-pressed={category === option.value} onClick={() => setCategory(option.value)}>{option.label}</button>)}
+          {([{value:'all',label:'Todos'},{value:'normal',label:'Normal'},{value:'gmax',label:'Gigantamax'},{value:'mega',label:'Mega'}] as const).map(option => (
+            <button key={option.value} type="button" className={category === option.value ? 'active' : ''} aria-pressed={category === option.value} onClick={() => changeCategory(option.value)}>
+              {option.label}
+            </button>
+          ))}
         </div>
         <div>
-          <button
-            type="button"
-            onClick={clearTypes}
-            className={selectedTypes.length === 0 ? 'active' : ''}
-          >
-            Todos
-          </button>
-
+          <button type="button" onClick={clearTypes} className={selectedTypes.length === 0 ? 'active' : ''}>Todos</button>
           {POKEMON_TYPES.map((type) => {
             const selected = selectedTypes.includes(type)
             const disabled = selectedTypes.length >= 2 && !selected
-
             return (
               <button
                 type="button"
