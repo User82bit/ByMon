@@ -104,7 +104,7 @@ async function prepareMoves(pokemon: PokemonBattleData, rng: () => number): Prom
   const fetched = await Promise.all(candidates.map(async name => {
     try { return await fetchMove(name) } catch { return null }
   }))
-  const valid = fetched.filter((move): move is MoveData =>
+  const valid = fetched.filter((move): move is MoveData & { power: number; damageClass: 'physical' | 'special' } =>
     move !== null && move.power !== null && move.power > 0 && move.damageClass !== 'status',
   )
 
