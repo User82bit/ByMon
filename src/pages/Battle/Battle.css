@@ -22,7 +22,7 @@
 .battle-result article{display:flex;align-items:center;gap:8px;padding:9px;border:1px solid var(--team-color);border-radius:14px;background:color-mix(in oklab,var(--team-color) 20%,rgba(20,26,51,.8))}
 .battle-result img{width:54px;height:54px;object-fit:contain}.battle-result span{margin-left:auto;font-size:12px}
 .log{margin-top:14px}.log h2{margin-top:0}.event{display:flex;align-items:center;gap:10px;margin-top:7px;padding:10px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(20,26,51,.5)}
-.event>img{width:38px;height:38px;object-fit:contain;flex:0 0 auto}.event>div{min-width:0}.event p{margin:3px 0 0;font-size:14px}.event-duel{border-color:rgba(255,214,90,.3)}.event-faint{border-color:rgba(255,107,107,.45)}
+.event>img{width:38px;height:38px;object-fit:contain;flex:0 0 auto}.event>div{min-width:0}.event{contain:layout paint}.event p{margin:3px 0 0;font-size:14px}.event-duel{border-color:rgba(255,214,90,.3)}.event-faint{border-color:rgba(255,107,107,.45)}
 @media(max-width:620px){.battle__header{align-items:flex-start;flex-direction:column}.battle__controls{width:100%}.battle__controls>*{flex:1}.battle-arena{grid-template-columns:minmax(0,1fr);gap:22px}.battle-card{min-height:unset}.battle-card>img{width:min(72%,220px)}.battle-vs{max-width:none;grid-row:2}.battle-arena .battle-card:last-child{grid-row:3}.battle-vs>b{font-size:20px}.battle-card h2{font-size:22px}}
 @media(prefers-reduced-motion:reduce){.battle-card,.hp-track span{transition:opacity .15s ease}}
 
@@ -45,12 +45,12 @@
     radial-gradient(ellipse at center, rgba(105, 95, 215, .2), transparent 62%),
     conic-gradient(from 30deg, transparent, rgba(80, 132, 224, .12), transparent 45%, rgba(166, 93, 220, .15), transparent);
   pointer-events: none;
-  animation: mega-arena-pulse 4s ease-in-out infinite alternate;
+  animation:none;
 }
 .battle-card.is-mega > img {
   position: relative;
   z-index: 1;
-  filter: drop-shadow(0 0 8px rgba(105, 95, 215, .27)) drop-shadow(0 12px 14px rgba(35, 55, 42, .12));
+  filter:none;
 }
 .variant-chip--mega {
   border: 1px solid rgba(105, 95, 215, .24);
@@ -77,15 +77,15 @@
     radial-gradient(ellipse at center, rgba(225, 49, 83, .18), transparent 62%),
     conic-gradient(from 30deg, transparent, rgba(120, 92, 206, .12), transparent 45%, rgba(239, 76, 100, .15), transparent);
   pointer-events: none;
-  animation: gmax-arena-pulse 3.5s ease-in-out infinite alternate;
+  animation:none;
 }
 .battle-card.is-gmax > img {
   position: relative;
   z-index: 1;
   transform: scale(1.1);
-  filter: drop-shadow(0 0 8px rgba(220, 45, 75, .26)) drop-shadow(0 12px 14px rgba(35, 55, 42, .12));
+  filter:none;
 }
-.event__pokemon--gmax { filter: drop-shadow(0 0 3px rgba(220, 45, 75, .36)); }
+.event__pokemon--gmax { filter:none; }
 @keyframes gmax-arena-pulse {
   from { opacity: .52; transform: scale(.94) rotate(-3deg); }
   to { opacity: .95; transform: scale(1.04) rotate(3deg); }
@@ -94,7 +94,7 @@
   .battle-card.is-gmax::before { animation: none; }
 }
 .event__pokemon--mega {
-  filter: drop-shadow(0 0 3px rgba(105, 95, 215, .34));
+  filter:none;
 }
 @keyframes mega-arena-pulse {
   from { opacity: .52; transform: scale(.94) rotate(-3deg); }
@@ -103,3 +103,6 @@
 @media (prefers-reduced-motion: reduce) {
   .battle-card.is-mega::before { animation: none; }
 }
+
+.log__toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;color:var(--muted);font-size:.8rem}
+.log__toolbar .ui-button{min-height:32px;padding:6px 10px;font-size:.75rem}

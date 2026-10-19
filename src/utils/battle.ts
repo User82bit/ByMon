@@ -6,6 +6,25 @@ export const VARIANT_MULTIPLIERS = { normal: 1, mega: 1, gmax: 1.5 } as const
 const LEVEL = 50
 const MOVE_CACHE = new Map<string, Promise<MoveData>>()
 const API_BASE = '/api/pokeapi?path='
+const MOVE_FETCH_LIMIT = 12
+let activeMoveRequests = 0
+const moveRequestQueue: Array<() => void> = []
+
+async function withLimitedMoveFetch<T>(operation: () => Promise<T>): Promise<T> {
+  if (activeMoveRequests >= MOVE_FETCH_LIMIT) {
+    await new Promise<void>((resolve) => moveRequestQueue.push(resolve))
+  } else {
+    activeMoveRequests += 1
+  }
+
+  try {
+    return await operation()
+  } finally {
+    const next = moveRequestQueue.shift()
+    if (next) next()
+    else activeMoveRequests -= 1
+  }
+}
 
 interface MoveData {
   name: string
@@ -38,13 +57,29 @@ function readStat(base: number, hp = false): number {
 function fetchMove(name: string): Promise<MoveData> {
   const cached = MOVE_CACHE.get(name)
   if (cached) return cached
-  const request = fetch(API_BASE + encodeURIComponent('/move/' + name))
-    .then(async response => {
-      if (!response.ok) throw new Error('Não foi possível carregar o golpe ' + name)
-      const data = await response.json() as { name: string; power: number | null; accuracy: number | null; type: { name: string }; damage_class: { name: string } }
-      return { name: data.name, power: data.power, accuracy: data.accuracy, type: data.type.name as PokemonTypeName, damageClass: data.damage_class.name as MoveData['damageClass'] }
-    })
-    .catch(error => { MOVE_CACHE.delete(name); throw error })
+
+  const request = withLimitedMoveFetch(async () => {
+    const response = await fetch(API_BASE + encodeURIComponent('/move/' + name))
+    if (!response.ok) throw new Error('Não foi possível carregar o golpe ' + name)
+    const data = await response.json() as {
+      name: string
+      power: number | null
+      accuracy: number | null
+      type: { name: string }
+      damage_class: { name: string }
+    }
+    return {
+      name: data.name,
+      power: data.power,
+      accuracy: data.accuracy,
+      type: data.type.name as PokemonTypeName,
+      damageClass: data.damage_class.name as MoveData['damageClass'],
+    }
+  }).catch(error => {
+    MOVE_CACHE.delete(name)
+    throw error
+  })
+
   MOVE_CACHE.set(name, request)
   return request
 }
@@ -59,22 +94,31 @@ function shuffle<T>(values: T[], rng: () => number): T[] {
 }
 
 async function prepareMoves(pokemon: PokemonBattleData, rng: () => number): Promise<BattleMove[]> {
-  const source = pokemon.moves.length ? pokemon.moves : []
-  const shuffled = shuffle(source, rng)
-  const valid: BattleMove[] = []
-  for (let start = 0; start < shuffled.length && valid.length < 10; start += 8) {
-    const batch = await Promise.all(shuffled.slice(start, start + 8).map(async name => {
-      try { return await fetchMove(name) } catch { return null }
-    }))
-    for (const move of batch) {
-      if (move && move.power !== null && move.power > 0 && move.damageClass !== 'status') {
-        valid.push({ name: move.name.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' '), type: move.type, power: move.power, damageClass: move.damageClass, accuracy: move.accuracy })
-        if (valid.length >= 10) break
-      }
-    }
+  const source = pokemon.moves
+  if (!source.length) {
+    return [{ name: 'Golpe básico', type: 'normal', power: 50, damageClass: 'physical' }]
   }
-  if (valid.length) return valid
-  return [{ name: 'Golpe básico', type: 'normal', power: 50, damageClass: 'physical' }]
+
+  // Limita a busca a um pequeno conjunto aleatório, em vez de consultar dezenas de golpes.
+  const candidates = shuffle(source, rng).slice(0, 8)
+  const fetched = await Promise.all(candidates.map(async name => {
+    try { return await fetchMove(name) } catch { return null }
+  }))
+  const valid = fetched.filter((move): move is MoveData & { power: number; damageClass: 'physical' | 'special' } =>
+    move !== null && move.power !== null && move.power > 0 && move.damageClass !== 'status',
+  )
+
+  if (!valid.length) {
+    return [{ name: 'Golpe básico', type: 'normal', power: 50, damageClass: 'physical' }]
+  }
+
+  return valid.slice(0, 6).map(move => ({
+    name: move.name.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' '),
+    type: move.type,
+    power: move.power as number,
+    damageClass: move.damageClass,
+    accuracy: move.accuracy,
+  }))
 }
 
 function makeFighter(team: Team, pokemon: PokemonBattleData, teamIndex: number, rng: () => number): BattleFighter {
@@ -148,16 +192,23 @@ export async function simulateBattle(teams: Team[], details: Map<number, Pokemon
   const seed = options.seed ?? Date.now().toString(36) + '-' + Math.random().toString(36).slice(2)
   const rng = mulberry32(seedNumber(seed))
   const queues = new Map<string, BattleFighter[]>()
+  const allFighters: BattleFighter[] = []
+
   for (let teamIndex = 0; teamIndex < teams.length; teamIndex += 1) {
     const team = teams[teamIndex]
-    const fighters = (team.pokemon.map(pokemon => {
+    const fighters = team.pokemon.map(pokemon => {
       const data = details.get(pokemon.id)
       if (!data) throw new Error('Dados de ' + pokemon.name + ' não foram encontrados.')
       return makeFighter(team, data, teamIndex, rng)
-    }))
-    for (const fighter of fighters) fighter.moves = await prepareMoves(fighter.pokemon, rng)
+    })
     queues.set(team.id, fighters)
+    allFighters.push(...fighters)
   }
+
+  // Prepara todos os times em paralelo; as requisições são limitadas globalmente.
+  await Promise.all(allFighters.map(async fighter => {
+    fighter.moves = await prepareMoves(fighter.pokemon, rng)
+  }))
   const events: BattleEvent[] = []
   let index = 0
   let champion = queues.get(teams[0]?.id ?? '')?.shift() ?? null

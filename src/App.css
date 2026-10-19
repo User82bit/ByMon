@@ -17,10 +17,10 @@ body { margin: 0; }
 .browser > p { color: var(--muted); }
 .filters {
   border-color: var(--border);
-  background: rgba(255,255,255,.8);
-  box-shadow: 0 12px 30px rgba(40,55,48,.09);
-  -webkit-backdrop-filter: blur(16px) saturate(125%);
-  backdrop-filter: blur(16px) saturate(125%);
+  background: rgba(255,255,255,.96);
+  box-shadow: 0 5px 16px rgba(40,55,48,.08);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 .filters button { border-color: rgba(70,88,79,.16); color: #405148; background: rgba(255,255,255,.76); }
 .filters button:hover { border-color: rgba(58,112,81,.32); background: rgba(237,246,240,.94); }
@@ -30,24 +30,25 @@ body { margin: 0; }
 .empty { border-color: rgba(70,88,79,.2); background: rgba(255,255,255,.62); color: var(--muted); }
 
 .pokemon-card {
-  border-color: rgba(70,88,79,.13);
-  background: rgba(255,255,255,.76);
-  box-shadow: 0 7px 20px rgba(40,55,48,.075);
+  border-color: rgba(70,88,79,.16);
+  background: rgba(255,255,255,.9);
+  box-shadow: none;
   content-visibility: auto;
-  contain-intrinsic-size: auto 245px;
+  contain-intrinsic-size: auto 220px;
 }
-.pokemon-card:hover { border-color: rgba(67,125,88,.34); background: rgba(255,255,255,.96); box-shadow: 0 12px 24px rgba(40,55,48,.11); }
+.pokemon-card:hover { border-color: rgba(67,125,88,.4); background: #fff; box-shadow: 0 3px 8px rgba(40,55,48,.06); }
 .pokemon-card:focus-visible { outline-color: var(--focus); }
-.pokemon-card__image-wrap img { filter: drop-shadow(0 8px 9px rgba(35,55,42,.12)); }
+.pokemon-card__image-wrap img { filter: none; }
+.pokemon-card__variant { box-shadow: none; }
 .pokemon-card__placeholder { border-color: rgba(70,88,79,.24); color: #758379; }
 .pokemon-card__content strong { color: #2d3c35; }
 
 .team-panel {
-  background: rgba(255,255,255,.78);
+  background: rgba(255,255,255,.88);
   border-color: color-mix(in oklab,var(--team-color) 34%,rgba(70,88,79,.1));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.88), 0 8px 22px color-mix(in oklab,var(--team-color) 8%,transparent);
-  -webkit-backdrop-filter: blur(16px) saturate(125%);
-  backdrop-filter: blur(16px) saturate(125%);
+  box-shadow: 0 3px 10px color-mix(in oklab,var(--team-color) 7%,transparent);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 .team-panel__name, .team-panel__name:hover, .team-panel__name:focus {
   color: #2b3b32;
@@ -79,10 +80,10 @@ body { margin: 0; }
 .battle { color: var(--text); }
 .battle__header, .battle-result, .log {
   border-color: var(--border);
-  background: rgba(255,255,255,.78);
-  box-shadow: var(--shadow);
-  -webkit-backdrop-filter: blur(16px) saturate(125%);
-  backdrop-filter: blur(16px) saturate(125%);
+  background: rgba(255,255,255,.94);
+  box-shadow: var(--shadow-soft);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 .battle h1, .battle h2 { color: var(--text); }
 .battle p { color: var(--muted); }
@@ -91,7 +92,7 @@ body { margin: 0; }
   background: linear-gradient(155deg,color-mix(in oklab,var(--team-color) 12%,rgba(255,255,255,.98)),rgba(255,255,255,.82));
   box-shadow: 0 14px 32px color-mix(in oklab,var(--team-color) 9%,transparent), inset 0 1px 0 rgba(255,255,255,.95);
 }
-.battle-card > img { filter: drop-shadow(0 12px 14px rgba(35,55,42,.12)); }
+.battle-card > img { filter: none; }
 .battle-card > strong, .battle-card small { color: #34473b; }
 .battle-card.is-active { box-shadow: 0 0 0 2px var(--team-color),0 14px 32px color-mix(in oklab,var(--team-color) 13%,transparent),inset 0 1px 0 rgba(255,255,255,.95); }
 .variant-chip { color: #405148; background: rgba(50,94,66,.08); }
@@ -134,3 +135,9 @@ body { margin: 0; }
     -webkit-backdrop-filter: none; backdrop-filter: none;
   }
 }
+
+/* Paginação da Pokédex: controles sem vidro e efeitos de pintura caros. */
+.pokemon-pagination__status{color:var(--muted)}
+.pokemon-pagination__actions button{border-color:var(--border);background:var(--surface-strong);color:var(--text)}
+.pokemon-pagination__actions button:not(:disabled):hover{border-color:var(--accent);background:var(--accent-soft)}
+.pokemon-pagination__actions button:disabled{opacity:.4}

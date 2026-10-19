@@ -16,9 +16,6 @@
     radial-gradient(ellipse at 14% 16%, rgba(229, 57, 53, .11), transparent 33%),
     radial-gradient(ellipse at 88% 18%, rgba(30, 136, 229, .1), transparent 36%),
     radial-gradient(ellipse at 56% 88%, rgba(82, 163, 119, .11), transparent 42%);
-  transform: translate3d(-.6%, -.4%, 0);
-  animation: bymon-ambient-drift 34s ease-in-out infinite alternate;
-  will-change: transform;
 }
 .layout::after {
   inset: 0;
@@ -26,15 +23,6 @@
   background-size: 26px 26px;
   opacity: .18;
   mask-image: linear-gradient(to bottom, black, transparent 92%);
-  animation: bymon-grid-drift 48s ease-in-out infinite alternate;
-}
-@keyframes bymon-ambient-drift {
-  from { transform: translate3d(-.6%, -.4%, 0) scale(1); }
-  to { transform: translate3d(.8%, .6%, 0) scale(1.035); }
-}
-@keyframes bymon-grid-drift {
-  from { transform: translate3d(0, 0, 0); }
-  to { transform: translate3d(0, 12px, 0); }
 }
 .topbar {
   position: sticky;
@@ -47,8 +35,8 @@
   padding: 8px 22px;
   border-bottom: 1px solid rgba(70,88,79,.13);
   background: rgba(255,255,255,.74);
-  -webkit-backdrop-filter: blur(18px) saturate(125%);
-  backdrop-filter: blur(18px) saturate(125%);
+  -webkit-backdrop-filter: blur(8px) saturate(110%);
+  backdrop-filter: blur(8px) saturate(110%);
   box-shadow: 0 8px 26px rgba(40,55,48,.055);
 }
 .topbar strong {

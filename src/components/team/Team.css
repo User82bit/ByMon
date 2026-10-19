@@ -1,4 +1,4 @@
-.team-panel{display:flex;flex-direction:column;gap:8px;min-width:0;padding:11px;border:1px solid var(--border);border-radius:16px;background:rgba(255,255,255,.57);box-shadow:var(--shadow-soft);backdrop-filter:blur(28px) saturate(160%);-webkit-backdrop-filter:blur(28px) saturate(160%)}
+.team-panel{display:flex;flex-direction:column;gap:8px;min-width:0;padding:11px;border:1px solid var(--border);border-radius:16px;background:rgba(255,255,255,.57);box-shadow:var(--shadow-soft);backdrop-filter:none;-webkit-backdrop-filter:none}
 .team-panel__header{display:flex;align-items:center;gap:7px}
 .team-panel__name{min-width:0;flex:1;height:38px;border:1px solid rgba(91,108,99,.12);border-radius:10px;padding:5px 9px;font:inherit;font-size:.94rem;font-weight:800;color:#2d3c35;background:rgba(255,255,255,.46);box-shadow:inset 0 1px 0 rgba(255,255,255,.56);transition:border-color 120ms ease,background 120ms ease,box-shadow 120ms ease}
 .team-panel__name:hover{background:rgba(255,255,255,.64)}
@@ -36,13 +36,13 @@
   border-radius: 50%;
   background: radial-gradient(ellipse, rgba(118, 101, 225, .22), rgba(90, 115, 222, .09) 48%, transparent 72%);
   pointer-events: none;
-  animation: mega-slot-pulse 4s ease-in-out infinite alternate;
+  animation:none;
 }
 .team-panel__pokemon--mega img {
   position: relative;
   z-index: 1;
   transform: scale(1.1);
-  filter: drop-shadow(0 0 3px rgba(105, 95, 215, .28));
+  filter:none;
 }
 .team-panel__pokemon--mega .team-panel__types,
 .team-panel__pokemon--mega .team-panel__remove-pokemon { position: relative; z-index: 2; }
@@ -53,13 +53,13 @@
   border-radius: 50%;
   background: radial-gradient(ellipse, rgba(229, 57, 85, .2), rgba(125, 89, 205, .09) 48%, transparent 72%);
   pointer-events: none;
-  animation: gmax-slot-pulse 3.6s ease-in-out infinite alternate;
+  animation:none;
 }
 .team-panel__pokemon--gmax img {
   position: relative;
   z-index: 1;
   transform: scale(1.08);
-  filter: drop-shadow(0 0 3px rgba(220, 45, 75, .25));
+  filter:none;
 }
 .team-panel__pokemon--gmax .team-panel__types,
 .team-panel__pokemon--gmax .team-panel__remove-pokemon { position: relative; z-index: 2; }

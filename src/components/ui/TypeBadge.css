@@ -9,7 +9,7 @@
   font-weight:750;
   text-transform:uppercase;
   letter-spacing:.03em;
-  box-shadow:0 2px 7px rgba(24,32,28,.09);
+  box-shadow:none;
 }
 .type-badge--normal{background:#8d8d6f}
 .type-badge--fire{background:#d75b2b}
