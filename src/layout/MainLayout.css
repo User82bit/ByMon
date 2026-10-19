@@ -24,8 +24,6 @@
   opacity: .18;
   mask-image: linear-gradient(to bottom, black, transparent 92%);
 }
-  to { transform: translate3d(0, 12px, 0); }
-}
 .topbar {
   position: sticky;
   top: 0;
