@@ -11,6 +11,15 @@ function variantLabel(kind: PokemonKind): string | null {
   return null
 }
 
+function getTurnNumbers(events: BattleEvent[]): number[] {
+  let actions = 0
+  return events.map((entry) => {
+    const turn = actions + 1
+    if (entry.kind === 'turn' || entry.kind === 'miss') actions += 1
+    return turn
+  })
+}
+
 function useBattlePlayback(events: BattleEvent[]) {
   const [index, setIndex] = useState(0)
   const [playing, setPlaying] = useState(true)
@@ -38,14 +47,7 @@ export function Battle({ result, onReturn }: { result: BattleResult; teams: Team
     () => result.events.slice(visibleStart, revealedCount),
     [result.events, visibleStart, revealedCount],
   )
-  const turnAtIndex = useMemo(() => {
-    let actions = 0
-    return result.events.map((entry) => {
-      const turn = actions + 1
-      if (entry.kind === 'turn' || entry.kind === 'miss') actions += 1
-      return turn
-    })
-  }, [result.events])
+  const turnAtIndex = useMemo(() => getTurnNumbers(result.events), [result.events])
 
   function fighterCard(value: typeof actor, isAttacker: boolean) {
     if (!value) return null
